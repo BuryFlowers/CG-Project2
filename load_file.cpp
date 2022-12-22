@@ -2,6 +2,7 @@
 #include "tinyxml2.h"
 #include "glm/glm.hpp"
 #include "camera.h"
+#include "mesh.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
@@ -22,7 +23,7 @@ Camera* LoadCamera() {
 
 	if (xmlCam == NULL) {
 
-		printf("[Error]No camera attribute was found!");
+		printf("[Error]No camera attribute was found!\n");
 		exit(-1);
 
 	}
@@ -36,14 +37,14 @@ Camera* LoadCamera() {
 
 	if (xmlCam->Attribute("height") == NULL) {
 
-		printf("[Error]No camera height attribute was found!");
+		printf("[Error]No camera height attribute was found!\n");
 		exit(-1);
 
 	}
 
 	if (xmlCam->Attribute("fovy") == NULL) {
 
-		printf("[Error]No camera fovy attribute was found!");
+		printf("[Error]No camera fovy attribute was found!\n");
 		exit(-1);
 
 	}
@@ -92,15 +93,20 @@ Camera* LoadCamera() {
 
 	if (count < 3) {
 
-		printf("[Error]Some camera attribute was not found!");
+		printf("[Error]Some camera attribute was not found!\n");
 		exit(-1);
 
 	}
 
+	printf("[Success]Camera configuration has been loaded!\n");
 	return new Camera(eye, lookat, fovy, width, height);
 
 }
 
+extern int materialNum;
+extern Material* materialList;
+extern int triangleNum;
+extern Mesh* triangleMesh;
 void LoadOBJ() {
 
 	std::string objPath = dataPath + sceneName + "/" + sceneName + ".obj";
@@ -124,45 +130,52 @@ void LoadOBJ() {
 	auto& shapes = reader.GetShapes();
 	auto& materials = reader.GetMaterials();
 
-	// Loop over shapes
-	for (size_t s = 0; s < shapes.size(); s++) {
-		// Loop over faces(polygon)
-		size_t index_offset = 0;
-		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-			size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+	materialNum = materials.size();
+	materialList = new Material[materialNum]();
+	for (int i = 0; i < materialNum; i++) {
 
-			// Loop over vertices in the face.
-			for (size_t v = 0; v < fv; v++) {
-				// access to vertex
-				tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-				tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
-				tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
-				tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+		const unsigned char* Name = (unsigned char*)materials[i].name.c_str();
+		vec3 Diffuse = vec3(materials[i].diffuse[0], materials[i].diffuse[1], materials[i].diffuse[2]);
+		const char* texturePath = (char*)materials[i].diffuse_texname.c_str();
+		vec3 Specular = vec3(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2]);
+		vec3 Transmittance = vec3(materials[i].transmittance[0], materials[i].transmittance[1], materials[i].transmittance[2]);
+		materialList[i] = Material(Name, Diffuse, texturePath, Specular, Transmittance, materials[i].shininess, materials[i].ior);
 
-				// Check if `normal_index` is zero or positive. negative = no normal data
-				if (idx.normal_index >= 0) {
-					tinyobj::real_t nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
-					tinyobj::real_t ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
-					tinyobj::real_t nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
-				}
-
-				// Check if `texcoord_index` is zero or positive. negative = no texcoord data
-				if (idx.texcoord_index >= 0) {
-					tinyobj::real_t tx = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
-					tinyobj::real_t ty = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
-				}
-
-				// Optional: vertex colors
-				// tinyobj::real_t red   = attrib.colors[3*size_t(idx.vertex_index)+0];
-				// tinyobj::real_t green = attrib.colors[3*size_t(idx.vertex_index)+1];
-				// tinyobj::real_t blue  = attrib.colors[3*size_t(idx.vertex_index)+2];
-			}
-			index_offset += fv;
-
-			// per-face material
-			shapes[s].mesh.material_ids[f];
-		}
 	}
 
+	for (int i = 0; i < shapes.size(); i++) triangleNum += shapes[i].mesh.num_face_vertices.size();
+	triangleMesh = new Triangle[triangleNum]();
+	
+	int offset = 0;
+	for (int i = 0; i < shapes.size(); i++) {
+
+		for (int j = 0; j < shapes[i].mesh.num_face_vertices.size(); j++) {
+
+			vec3 v[3], n[3];
+			vec2 uv[3];
+			for (int k = 0; k < 3; k++) {
+
+				tinyobj::index_t index = shapes[i].mesh.indices[j * 3 + k];
+
+				v[k].x = attrib.vertices[3 * size_t(index.vertex_index) + 0];
+				v[k].y = attrib.vertices[3 * size_t(index.vertex_index) + 1];
+				v[k].z = attrib.vertices[3 * size_t(index.vertex_index) + 2];
+
+				n[k].x = attrib.normals[3 * size_t(index.normal_index) + 0];
+				n[k].y = attrib.normals[3 * size_t(index.normal_index) + 1];
+				n[k].z = attrib.normals[3 * size_t(index.normal_index) + 2];
+
+				uv[k].x = attrib.normals[3 * size_t(index.texcoord_index) + 0];
+				uv[k].y = attrib.normals[3 * size_t(index.texcoord_index) + 1];
+
+			}
+
+			triangleMesh[offset++] = Triangle(v, n, uv, &materialList[shapes[i].mesh.material_ids[j]]);
+
+		}
+
+	}
+
+	printf("[Success]Scene has been loaded!\n");
 
 }

@@ -13,6 +13,7 @@ public:
 
     Material() {
 
+        name = NULL;
         diffuse = vec3(0);
         texture = NULL;
         specular = vec3(0);
@@ -22,8 +23,9 @@ public:
 
     }
 
-    Material(vec3 Diffuse, const char texturePath[], vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
+    Material(const unsigned char* Name, vec3 Diffuse, const char* texturePath, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
 
+        name = Name;
         diffuse = Diffuse;
         if (strlen(texturePath) != 0) {
 
@@ -64,6 +66,7 @@ public:
 
 private:
 
+    const unsigned char* name;
     vec3 diffuse;//-*Kd * : the diffuse reflectance of material, * map_Kd* is the texture file path.
     struct Texture {
 

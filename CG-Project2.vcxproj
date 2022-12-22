@@ -129,6 +129,8 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="material.h" />
+    <ClInclude Include="mesh.h" />
+    <ClInclude Include="ray.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_resize.h" />
     <ClInclude Include="stb_image_write.h" />
@@ -137,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="load_file.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="stb_image.cpp" />
     <ClCompile Include="tinyxml2.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
