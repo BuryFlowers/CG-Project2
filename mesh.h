@@ -13,127 +13,44 @@ class Mesh {
 public:
 
 	virtual void AABB(vec3& v1, vec3& v2) = 0;
+	virtual float area() = 0;
 	virtual bool intersect(Ray r, float &t, IntersectionPoint &IP) = 0;
 
-};
+	static bool cmpx(Mesh* a, Mesh* b) {
 
-class Triangle : public Mesh {
-
-public:
-
-	Triangle() {
-
-		mat = NULL;
-
-	}
-	Triangle(vec3 V[3], vec3 N[3], vec2 UV[3], Material* MAT) {
-
-		memcpy(v, V, sizeof(v));
-		memcpy(n, N, sizeof(n));
-		memcpy(uv, UV, sizeof(uv));
-		planeNormal = cross(v[1] - v[0], v[2] - v[0]);
-		A = length(planeNormal);
-		planeNormal = normalize(planeNormal);
-		v0N = dot(v[0], planeNormal);
-		mat = MAT;
-
-		v1 = v2 = v[0];
-
-		if (v[1].x < v1.x) v1.x = v[1].x;
-		if (v[1].y < v1.y) v1.y = v[1].y;
-		if (v[1].z < v1.z) v1.z = v[1].z;
-		if (v[1].x > v2.x) v2.x = v[1].x;
-		if (v[1].y > v2.y) v2.y = v[1].y;
-		if (v[1].z > v2.z) v2.z = v[1].z;
-
-		if (v[2].x < v1.x) v1.x = v[2].x;
-		if (v[2].y < v1.y) v1.y = v[2].y;
-		if (v[2].z < v1.z) v1.z = v[2].z;
-		if (v[2].x > v2.x) v2.x = v[2].x;
-		if (v[2].y > v2.y) v2.y = v[2].y;
-		if (v[2].z > v2.z) v2.z = v[2].z;
+		vec3 av1, av2;
+		vec3 bv1, bv2;
+		a->AABB(av1, av2);
+		b->AABB(bv1, bv2);
+		if (av1.x == bv1.x) return av2.x < bv2.x;
+		return av1.x < bv1.x;
 
 	}
 
-	virtual void AABB(vec3& v1, vec3& v2) {
+	static bool cmpy(Mesh* a, Mesh* b) {
 
-		v1 = this->v1;
-		v2 = this->v2;
-
-	}
-
-	virtual bool intersect(Ray r, float& t, IntersectionPoint& IP) {
-
-		if (fabs(dot(r.direction(), planeNormal)) < 1e-5) return false;
-
-		t = (v0N - dot(r.origin(), planeNormal)) / dot(r.direction(), planeNormal);
-		if (t < 0) return false;
-
-		vec3 p = r.pointAt(t);
-		float w0, w1, w2;
-
-		w0 = length(cross(v[1] - p, v[2] - p)) / A;
-		w1 = length(cross(v[0] - p, v[2] - p)) / A;
-		w2 = 1 - w0 - w1;
-
-		if (w0 < 0 || w0 > 1.0f) return false;
-		if (w1 < 0 || w1 > 1.0f) return false;
-		if (w2 < 0 || w2 > 1.0f) return false;
-
-		IP.mat = this->mat;
-		IP.p = p;
-		IP.n = w0 * n[0] + w1 * n[1] + w2 * n[2];
-		IP.uv = w0 * uv[0] + w1 * uv[1] + w2 * uv[2];
-
-		return true;
+		vec3 av1, av2;
+		vec3 bv1, bv2;
+		a->AABB(av1, av2);
+		b->AABB(bv1, bv2);
+		if (av1.y == bv1.y) return av2.y < bv2.y;
+		return av1.y < bv1.y;
 
 	}
 
-private:
+	static bool cmpz(Mesh* a, Mesh* b) {
 
-	vec3 v[3];
-	vec3 n[3];
-	vec2 uv[3];
-	vec3 planeNormal;
-	float v0N;
-	float A;
-	Material* mat;
-	vec3 v1, v2;
+		vec3 av1, av2;
+		vec3 bv1, bv2;
+		a->AABB(av1, av2);
+		b->AABB(bv1, bv2);
+		if (av1.z == bv1.z) return av2.z < bv2.z;
+		return av1.z < bv1.z;
+
+	}
 
 };
 
-bool cmpx(Mesh& a, Mesh& b) {
-
-	vec3 av1, av2;
-	vec3 bv1, bv2;
-	a.AABB(av1, av2);
-	b.AABB(bv1, bv2);
-	if (av1.x == bv1.x) return av2.x < bv2.x;
-	return av1.x < bv1.x;
-
-}
-
-bool cmpy(Mesh& a, Mesh& b) {
-
-	vec3 av1, av2;
-	vec3 bv1, bv2;
-	a.AABB(av1, av2);
-	b.AABB(bv1, bv2);
-	if (av1.y == bv1.y) return av2.y < bv2.y;
-	return av1.y < bv1.y;
-
-}
-
-bool cmpz(Mesh& a, Mesh& b) {
-
-	vec3 av1, av2;
-	vec3 bv1, bv2;
-	a.AABB(av1, av2);
-	b.AABB(bv1, bv2);
-	if (av1.z == bv1.z) return av2.z < bv2.z;
-	return av1.z < bv1.z;
-
-}
 
 //class BVH : public Mesh {
 //

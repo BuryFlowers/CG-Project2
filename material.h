@@ -23,7 +23,7 @@ public:
 
     }
 
-    Material(const unsigned char* Name, vec3 Diffuse, const char* texturePath, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
+    Material(const char* Name, vec3 Diffuse, const char* texturePath, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
 
         name = Name;
         diffuse = Diffuse;
@@ -52,6 +52,16 @@ public:
 
     }
 
+    vec3 phongModel(vec3 wi, vec3 wo, vec3 cameraDirection, vec3 normal, vec2 uv, vec3 lightRadiance) {
+
+        vec3 result = diffuse * sampleTexture((int)uv.x, (int)uv.y) * dot(wo, normal) + specular * pow(dot(wi, cameraDirection), shiness);
+
+        return result * lightRadiance;
+
+    }
+
+    const char* Name() { return name; }
+
     vec3 sampleTexture(int x, int y) {
 
         if (texture == NULL) return vec3(1.0f);
@@ -66,7 +76,7 @@ public:
 
 private:
 
-    const unsigned char* name;
+    const char* name;
     vec3 diffuse;//-*Kd * : the diffuse reflectance of material, * map_Kd* is the texture file path.
     struct Texture {
 
