@@ -88,6 +88,8 @@ void LoadOBJ() {
 
 		}
 
+		triangleObjects[i].buildBVH();
+
 	}
 
 	printf("[Success]Scene has been loaded!\n");
@@ -182,7 +184,7 @@ Camera* LoadCamera() {
 	}
 
 	printf("[Success]Camera configuration has been loaded!\n");
-	return new Camera(eye, lookat, fovy, width, height);
+	return new Camera(eye, lookat, up, fovy, width, height);
 
 }
 

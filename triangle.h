@@ -61,15 +61,20 @@ public:
 		if (t < 0) return false;
 
 		vec3 p = r.pointAt(t);
+
+		vec3 t1 = cross(v[0] - p, v[1] - p);
+		vec3 t2 = cross(v[1] - p, v[2] - p);
+		vec3 t3 = cross(v[2] - p, v[0] - p);
+
+		if (dot(t1, t2) < 0) return false;
+		if (dot(t1, t3) < 0) return false;
+		if (dot(t2, t3) < 0) return false;
+
 		float w0, w1, w2;
 
-		w0 = length(cross(v[1] - p, v[2] - p)) / A;
-		w1 = length(cross(v[0] - p, v[2] - p)) / A;
+		w0 = length(t2) / A;
+		w1 = length(t3) / A;
 		w2 = 1 - w0 - w1;
-
-		if (w0 < 0 || w0 > 1.0f) return false;
-		if (w1 < 0 || w1 > 1.0f) return false;
-		if (w2 < 0 || w2 > 1.0f) return false;
 
 		IP.mat = this->mat;
 		IP.p = p;
@@ -184,11 +189,11 @@ public:
 		if (!firstT) return false;
 
 		int mid = (l + r) / 2;
-		if (!intersectChildren(l, mid, AABB_index * 2, ray, t, IP)) return intersectChildren(mid, r, AABB_index * 2 + 1, ray, t, IP);
+		if (!intersectChildren(l, mid, AABB_index * 2, ray, t, IP)) return intersectChildren(mid + 1, r, AABB_index * 2 + 1, ray, t, IP);
 
 		float tmpT;
 		IntersectionPoint tmpIP;
-		if (!intersectChildren(mid, r, AABB_index * 2 + 1, ray, tmpT, tmpIP)) return true;
+		if (!intersectChildren(mid + 1, r, AABB_index * 2 + 1, ray, tmpT, tmpIP)) return true;
 
 		if (tmpT < t) {
 
@@ -245,8 +250,8 @@ public:
 
 	void buildBVH() {
 
-		v1 = new vec3[triangles.size() * 2 + 1];
-		v2 = new vec3[triangles.size() * 2 + 1];
+		v1 = new vec3[triangles.size() * 4 + 1];
+		v2 = new vec3[triangles.size() * 4 + 1];
 		updateBVH(0, triangles.size() - 1, 1, 0);
 
 	}
