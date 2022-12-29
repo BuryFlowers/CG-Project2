@@ -136,6 +136,7 @@
     <ClInclude Include="stb_image_resize.h" />
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="tiny_obj_loader.h" />
+    <ClInclude Include="tracing.h" />
     <ClInclude Include="triangle.h" />
   </ItemGroup>
   <ItemGroup>

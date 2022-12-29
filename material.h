@@ -3,6 +3,7 @@
 #define MATERIAL
 #include "glm/glm.hpp"
 #include "stb_image.h"
+#include "tracing.h"
 #include <string.h>
 
 using namespace glm;
@@ -13,7 +14,6 @@ public:
 
     Material() {
 
-        name = NULL;
         diffuse = vec3(0);
         texture = NULL;
         specular = vec3(0);
@@ -99,7 +99,7 @@ public:
 
     }
 
-    const char* Name() { return name; }
+    const char* Name() { return name.c_str(); }
 
     vec3 sampleTexture(int x, int y) {
 
@@ -115,7 +115,7 @@ public:
 
 private:
 
-    const char* name;
+    std::string name;
     vec3 diffuse;//-*Kd * : the diffuse reflectance of material, * map_Kd* is the texture file path.
     struct Texture {
 

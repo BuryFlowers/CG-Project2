@@ -294,7 +294,11 @@ public:
 	void findLightTriangles(Light* light, const char* name) {
 
 		for (int i = 0; i < triangles.size(); i++)
-			if (strcmp(name, triangles[i]->Mat()->Name()) == 0) light->addMesh(triangles[i]);
+			if (strcmp(name, triangles[i]->Mat()->Name()) == 0) {
+
+				light->addMesh(triangles[i]);
+
+			}
 
 	}
 

@@ -54,7 +54,7 @@ public:
 			
 	}
 
-	float randomLightRay(vec3 point, vec3& d) {
+	float randomLightRay(vec3 point, Ray& r) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -71,8 +71,10 @@ public:
 
 		}
 
-		d = m->uniformSampling() - point;
+		vec3 o = m->uniformSampling();
+		vec3 d = point - o;
 		d = normalize(d);
+		r = Ray(o, d);
 		//return length(direction) * length(direction) / ()
 		return 1.0f;
 

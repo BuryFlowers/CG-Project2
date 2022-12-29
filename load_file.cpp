@@ -196,43 +196,53 @@ Light* LoadLight() {
 
 	lightNum = 0;
 	tinyxml2::XMLElement* xmlLg = xmlDoc.FirstChildElement();
-	while (xmlLg != NULL && strcmp(xmlLg->Name(), "light") == 0) lightNum++, xmlLg = xmlLg->NextSiblingElement();
+	while (xmlLg != NULL) {
+
+		if (strcmp(xmlLg->Name(), "light") == 0) lightNum++;
+		xmlLg = xmlLg->NextSiblingElement();
+
+	}
 	Light* lights= new Light[lightNum]();
 
 	lightNum = 0;
 	xmlLg = xmlDoc.FirstChildElement();
-	while (xmlLg != NULL && strcmp(xmlLg->Name(), "light") == 0) {
+	while (xmlLg != NULL) {
 
-		std::string radianceStr = xmlLg->Attribute("radiance");
-		if (radianceStr.empty()) {
+		if (strcmp(xmlLg->Name(), "light") == 0) {
 
-			printf("[Error]Some light ridiance was not found!\n");
-			exit(-1);
+			std::string radianceStr = xmlLg->Attribute("radiance");
+			if (radianceStr.empty()) {
+
+				printf("[Error]Some light ridiance was not found!\n");
+				exit(-1);
+
+			}
+
+			int l = 0, r = radianceStr.length() - 1;
+
+			while (radianceStr[l] != ',' && l < r) l++;
+			while (radianceStr[r] != ',' && r > 0) r--;
+
+			vec3 radiance;
+			radiance.x = strtod(radianceStr.substr(0, l).c_str(), NULL);
+			radiance.y = strtod(radianceStr.substr(l + 1, r - l - 1).c_str(), NULL);
+			radiance.z = strtod(radianceStr.substr(r + 1, radianceStr.length() - r - 1).c_str(), NULL);
+
+			const char* materialName = xmlLg->Attribute("mtlname");
+			if (radianceStr.empty()) {
+
+				printf("[Error]Some light material was not found!\n");
+				exit(-1);
+
+			}
+
+			lights[lightNum] = Light(radiance);
+			for (int i = 0; i < triangleObjectNum; i++) triangleObjects[i].findLightTriangles(&lights[lightNum], materialName);
+
+			lightNum++;
 
 		}
 
-		int l = 0, r = radianceStr.length() - 1;
-
-		while (radianceStr[l] != ',' && l < r) l++;
-		while (radianceStr[r] != ',' && r > 0) r--;
-
-		vec3 radiance;
-		radiance.x = strtod(radianceStr.substr(0, l).c_str(), NULL);
-		radiance.y = strtod(radianceStr.substr(l + 1, r - l - 1).c_str(), NULL);
-		radiance.z = strtod(radianceStr.substr(r + 1, radianceStr.length() - r - 1).c_str(), NULL);
-
-		const char* materialName = xmlLg->Attribute("mtlname");
-		if (radianceStr.empty()) {
-
-			printf("[Error]Some light material was not found!\n");
-			exit(-1);
-
-		}
-		
-		lights[lightNum] = Light(radiance);
-		for (int i = 0; i < triangleObjectNum; i++) triangleObjects[i].findLightTriangles(&lights[lightNum], materialName);
-
-		lightNum++;
 		xmlLg = xmlLg->NextSiblingElement();
 
 	}

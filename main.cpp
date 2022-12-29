@@ -28,10 +28,13 @@ Light* LoadLight();
 Light* lights;
 int lightNum;
 
-const float RLPThreshold = 0.5f;
-int SPP = 1;
+const float RRPThreshold = 0.5f;
+int SPP = 4;
 std::vector<PathPoint> paths;
+float* result;
+char* image;
 bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP);
+void getPathTracingResult(int rgb, int x, int y);
 
 int main() {
 
@@ -41,43 +44,59 @@ int main() {
 	cam = LoadCamera();
 	lights = LoadLight();
 
-	float* result = new float[cam->Width() * cam->Height()];
-	char* image = new char[cam->Width() * cam->Height() * 3];
+	result = new float[cam->Width() * cam->Height() * 3];
+	image = new char[cam->Width() * cam->Height() * 3];
 	float maxT = 0;
 
-	for (int i = 0; i < cam->Width(); i++)
+	for (int i = 0; i < cam->Width(); i++) {
 		for (int j = 0; j < cam->Height(); j++)
 			for (int rgb = 0; rgb < 3; rgb++) {
 
-				Ray r = cam->pixelRay(i, j);
-				paths.clear();
-				float t = 1e10;
-				IntersectionPoint IP;
-				for (int k = 0; k < SPP; k++) 
+				for (int k = 0; k < SPP; k++) {
+
+					Ray r = cam->pixelRay(i, j);
+					paths.clear();
+					float t = 1e10;
+					IntersectionPoint IP;
 					if (intersctionCheck(r, t, IP)) {
 
-						int currentPP = 0;
-						float RLP = rand() * 1.0f / RAND_MAX;
+						float RRP = rand() * 1.0f / RAND_MAX;
 						vec3 wi = r.direction() * -1.0f;
 						float p = 1.0f;
-						while (RLP < RLPThreshold) {
+						paths.push_back(PathPoint(IP.p, IP.n, 0, p));
+						while (RRP < RRPThreshold) {
 
-							paths.push_back(PathPoint(IP.p, IP.n, 0, p));
 							p = IP.mat->randomBRDFRay(wi, r, IP, rgb);
 							if (p == -1.0f) break;
 							t = 1e10;
 							if (!intersctionCheck(r, t, IP)) break;
-							RLP = rand() * 1.0f / RAND_MAX;
+							RRP = rand() * 1.0f / RAND_MAX;
+							paths.push_back(PathPoint(IP.p, IP.n, 0, p));
 
 						}
 
-						
+
 					}
 
+					getPathTracingResult(rgb, i, j);
+
+				}
+
+				result[(i * cam->Height() + j) * 3 + rgb] /= 1.0f * SPP;
 
 			}
 
-	
+		if (i % 64 == 0) printf("%d%% is finished.\n", i * 100 / cam->Width());
+
+	}
+
+	for (int i = 0; i < cam->Width(); i++) 
+		for (int j = 0; j < cam->Height(); j++)
+			for (int k = 0; k < 3; k ++) {
+
+				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = result[(j + i * cam->Height()) * 3 + k] * 255.0f;
+
+			}
 
 	stbi_write_jpg((sceneName + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 0);
 
@@ -104,34 +123,35 @@ bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
 }
 
-vec3 getPathTracingResult(int rgb, int x, int y) {
-
-	vec3 result = vec3(1.0f);
+void getPathTracingResult(int rgb, int x, int y) {
 
 	int num = paths.size();
-	vec3 currentResult = vec3(1.0f);
-
+	if (num == 0) return;
 	bool flag = false;
-	vec3 d;
 	vec3 lightRadiance = vec3(0.0f);
 	for (int i = 0; i < lightNum; i++) {
 
-		lights[i].randomLightRay(paths[num - 1].x, d);
-		Ray r = Ray(paths[num - 1].x, -d);
+		Ray r1, r2;
+		lights[i].randomLightRay(paths[num - 1].x, r1);
+		r2 = Ray(paths[num - 1].x, r1.direction() * -1.0f);
 		float t = 1e10;
 		IntersectionPoint IP;
-		if (intersctionCheck(r, t, IP)) paths[num - 1].f += dot(paths[num - 1].n, r.direction()) * lights[i].Radiance()[rgb];
+		if (intersctionCheck(r2, t, IP) && length(IP.p - r1.origin()) < 1e-3) {
 
+			paths[num - 1].f += dot(paths[num - 1].n, r2.direction()) * lights[i].Radiance()[rgb];
+
+		}
 
 	}
 
 	for (int i = num - 2; i > 0; i--) {
 
 		vec3 direction = paths[i + 1].x - paths[i].x;
-		paths[i].f += dot(paths[i].n, direction) * paths[i + 1].f / paths[i + 1].p;
+		direction = normalize(direction);
+		paths[i].f += dot(paths[i].n, direction) * paths[i + 1].f / paths[i + 1].p / RRPThreshold;
 
 	}
 
-	result[x][y][rgb] += paths[0].f;
+	result[(x * cam->Height() + y) * 3 + rgb] += paths[0].f;
 
 }
