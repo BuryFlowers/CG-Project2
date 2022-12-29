@@ -1,7 +1,7 @@
 #pragma once
 #ifndef CAMERA
 #define CAMERA
-#define PI 3.1415926535
+#define PI 3.1415926535f
 #include "glm/glm.hpp"
 #include "ray.h"
 

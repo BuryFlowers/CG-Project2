@@ -85,6 +85,20 @@ public:
 
 	}
 
+	virtual vec3 uniformSampling() {
+
+		float u1 = rand() * 1.0f / RAND_MAX;
+		float u2 = rand() * 1.0f / RAND_MAX;
+
+		vec3 p;
+		p.x = (1 - u1) * sqrt(u2) * v[0].x + u1 * sqrt(u2) * v[1].x + (1 - sqrt(u2)) * v[2].x;
+		p.y = (1 - u1) * sqrt(u2) * v[0].y + u1 * sqrt(u2) * v[1].y + (1 - sqrt(u2)) * v[2].y;
+		p.z = (1 - u1) * sqrt(u2) * v[0].z + u1 * sqrt(u2) * v[1].z + (1 - sqrt(u2)) * v[2].z;
+
+		return p;
+
+	}
+
 	Material* Mat() { return mat; }
 
 private:
@@ -212,6 +226,27 @@ public:
 
 	}
 
+	virtual vec3 uniformSampling() {
+
+		float p = rand() * 1.0f / RAND_MAX * A;
+		float a = 0;
+		Triangle* t = triangles[triangles.size() - 1];
+		for (int i = 0; i < triangles.size(); i++) {
+
+			a += triangles[i]->area();
+			if (a >= p) {
+
+				t = triangles[i];
+				break;
+
+			}
+
+		}
+
+		return t->uniformSampling();
+
+	}
+
 	void addTriangle(Triangle* triangle) {
 
 		triangles.push_back(triangle);
@@ -250,8 +285,8 @@ public:
 
 	void buildBVH() {
 
-		v1 = new vec3[triangles.size() * 4 + 1];
-		v2 = new vec3[triangles.size() * 4 + 1];
+		v1 = new vec3[triangles.size() * 3 + 1];
+		v2 = new vec3[triangles.size() * 3 + 1];
 		updateBVH(0, triangles.size() - 1, 1, 0);
 
 	}

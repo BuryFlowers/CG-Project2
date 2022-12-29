@@ -60,6 +60,45 @@ public:
 
     }
 
+    float randomBRDFRay(vec3 wi, Ray& r, IntersectionPoint IP, int rgb) {
+
+        float u1 = rand() * 1.0f / RAND_MAX;
+        float u2 = rand() * 1.0f / RAND_MAX;
+
+        vec3 y = IP.n;
+        vec3 z = cross(y, wi);
+        z = normalize(z);
+        vec3 x = cross(y, z);
+        x = normalize(x);
+
+        float p = rand() * 1.0f / RAND_MAX;
+        vec3 kd = diffuse * sampleTexture((int)IP.uv.x, (int)IP.uv.y);
+        vec3 ks = specular;
+        if (p < kd[rgb]) {
+
+            vec2 w = vec2(acosf(sqrt(u1)), 2 * PI * u2);
+            vec3 wo = x * cosf(w.x) * sinf(w.y) + y * sinf(w.x) * sinf(w.y) + z * cosf(w.y);
+            wo = normalize(wo);
+            r = Ray(IP.p, wo);
+            return cosf(w.x) / PI;
+
+        }
+
+        else if (p < kd[rgb] + ks[rgb]) {
+
+            vec3 reflectDirection = 2 * dot(wi, y) * y - wi;
+            vec2 w = vec2(acosf(pow(u1, 1.0f / (shiness + 1.0f))), 2 * PI * u2);
+            vec3 wo = x * cosf(w.x) * sinf(w.y) + y * sinf(w.x) * sinf(w.y) + z * cosf(w.y);
+            wo = normalize(wo);
+            r = Ray(IP.p, wo);
+            return (shiness + 1) / (0.5f * PI) * pow(dot(reflectDirection, wo), shiness);
+
+        }
+
+        else return -1.0f;
+
+    }
+
     const char* Name() { return name; }
 
     vec3 sampleTexture(int x, int y) {

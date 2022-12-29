@@ -8,6 +8,7 @@
 #include "triangle.h"
 #include "light.h"
 #include <string>
+#include <time.h>
 
 using namespace glm;
 
@@ -27,9 +28,14 @@ Light* LoadLight();
 Light* lights;
 int lightNum;
 
+const float RLPThreshold = 0.5f;
 int SPP = 1;
+std::vector<PathPoint> paths;
+bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP);
 
 int main() {
+
+	srand(time(0));
 
 	LoadOBJ();
 	cam = LoadCamera();
@@ -40,57 +46,92 @@ int main() {
 	float maxT = 0;
 
 	for (int i = 0; i < cam->Width(); i++)
-		for (int j = 0; j < cam->Height(); j++) {
+		for (int j = 0; j < cam->Height(); j++)
+			for (int rgb = 0; rgb < 3; rgb++) {
 
-			if (i == 50 && j == 50) {
+				Ray r = cam->pixelRay(i, j);
+				paths.clear();
+				float t = 1e10;
+				IntersectionPoint IP;
+				for (int k = 0; k < SPP; k++) 
+					if (intersctionCheck(r, t, IP)) {
 
-				bool xx = true;
+						int currentPP = 0;
+						float RLP = rand() * 1.0f / RAND_MAX;
+						vec3 wi = r.direction() * -1.0f;
+						float p = 1.0f;
+						while (RLP < RLPThreshold) {
 
-			}
+							paths.push_back(PathPoint(IP.p, IP.n, 0, p));
+							p = IP.mat->randomBRDFRay(wi, r, IP, rgb);
+							if (p == -1.0f) break;
+							t = 1e10;
+							if (!intersctionCheck(r, t, IP)) break;
+							RLP = rand() * 1.0f / RAND_MAX;
 
-			Ray r = cam->pixelRay(i, j);
-			float t = 1e10;
-			IntersectionPoint IP;
-			bool flag = false;
-			for (int k = 0; k < SPP; k++) {
+						}
 
-				for (int l = 0; l < triangleObjectNum; l++) {
-
-					float tmpT;
-					IntersectionPoint tmpIP;
-					if (triangleObjects[l].intersect(r, tmpT, tmpIP) && tmpT < t) {
-
-						t = tmpT;
-						IP = tmpIP;
-						flag = true;
-
+						
 					}
 
 
-				}
-
 			}
 
-			if (flag == false) t = 0;
-			result[(j + i * cam->Height())] = t;
-			if (t > maxT) maxT = t;
+	
 
-		}
+	stbi_write_jpg((sceneName + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 0);
 
-	for (int i = 0; i < cam->Width(); i++) {
+}
 
-		for (int j = 0; j < cam->Height(); j++) {
+bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
-			float t = result[j + i * cam->Height()];
-			int index = i + (cam->Height() - j - 1) * cam->Width();
-			image[index * 3] = t / maxT * 255.0f;
-			image[index * 3 + 1] = t / maxT * 255.0f;
-			image[index * 3 + 2] = t / maxT * 255.0f;
+	bool flag = false;
+	for (int l = 0; l < triangleObjectNum; l++) {
+
+		float tmpT;
+		IntersectionPoint tmpIP;
+		if (triangleObjects[l].intersect(r, tmpT, tmpIP) && tmpT < t) {
+
+			t = tmpT;
+			IP = tmpIP;
+			flag = true;
 
 		}
 
 	}
 
-	stbi_write_jpg((sceneName + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 0);
+	return flag;
+
+}
+
+vec3 getPathTracingResult(int rgb, int x, int y) {
+
+	vec3 result = vec3(1.0f);
+
+	int num = paths.size();
+	vec3 currentResult = vec3(1.0f);
+
+	bool flag = false;
+	vec3 d;
+	vec3 lightRadiance = vec3(0.0f);
+	for (int i = 0; i < lightNum; i++) {
+
+		lights[i].randomLightRay(paths[num - 1].x, d);
+		Ray r = Ray(paths[num - 1].x, -d);
+		float t = 1e10;
+		IntersectionPoint IP;
+		if (intersctionCheck(r, t, IP)) paths[num - 1].f += dot(paths[num - 1].n, r.direction()) * lights[i].Radiance()[rgb];
+
+
+	}
+
+	for (int i = num - 2; i > 0; i--) {
+
+		vec3 direction = paths[i + 1].x - paths[i].x;
+		paths[i].f += dot(paths[i].n, direction) * paths[i + 1].f / paths[i + 1].p;
+
+	}
+
+	result[x][y][rgb] += paths[0].f;
 
 }

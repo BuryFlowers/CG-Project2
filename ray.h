@@ -45,4 +45,22 @@ struct IntersectionPoint {
 
 };
 
+struct PathPoint {
+
+	PathPoint(vec3 X, vec3 N, float F, float P) {
+
+		x = X;
+		n = N;
+		f = F;
+		p = P;
+
+	}
+
+	vec3 x;
+	vec3 n;
+	float f;
+	float p;
+
+};
+
 #endif // !RAY
