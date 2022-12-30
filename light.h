@@ -6,6 +6,8 @@
 
 using namespace glm;
 
+extern class Material;
+
 class Light {
 
 public:
@@ -18,11 +20,12 @@ public:
 
 	}
 
-	Light(vec3 r) {
+	Light(vec3 r, Material* Mat) {
 
 		mesh.clear();
 		radiance = r;
 		A = 0;
+		mat = Mat;
 
 	}
 
@@ -54,7 +57,7 @@ public:
 			
 	}
 
-	float randomLightRay(vec3 point, Ray& r) {
+	float randomLightRay(vec3 point, Ray& r, vec3& lightPosition) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -71,22 +74,24 @@ public:
 
 		}
 
-		vec3 o = m->uniformSampling();
-		vec3 d = point - o;
+		lightPosition = m->uniformSampling();
+		vec3 d = lightPosition - point;
 		d = normalize(d);
-		r = Ray(o, d);
+		r = Ray(point, d);
 		//return length(direction) * length(direction) / ()
 		return 1.0f;
 
 	}
 
 	vec3 Radiance() { return radiance; }
+	Material* Mat() { return mat; }
 
 private:
 
 	std::vector<Mesh*> mesh;
 	vec3 radiance;
 	float A;
+	Material* mat;
 
 };
 

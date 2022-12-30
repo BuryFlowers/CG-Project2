@@ -58,7 +58,7 @@ public:
 		if (fabs(dot(r.direction(), planeNormal)) < 1e-5) return false;
 
 		t = (v0N - dot(r.origin(), planeNormal)) / dot(r.direction(), planeNormal);
-		if (t < 0) return false;
+		if (t < 1e-3) return false;
 
 		vec3 p = r.pointAt(t);
 
@@ -90,12 +90,7 @@ public:
 		float u1 = rand() * 1.0f / RAND_MAX;
 		float u2 = rand() * 1.0f / RAND_MAX;
 
-		vec3 p;
-		p.x = (1 - u1) * sqrt(u2) * v[0].x + u1 * sqrt(u2) * v[1].x + (1 - sqrt(u2)) * v[2].x;
-		p.y = (1 - u1) * sqrt(u2) * v[0].y + u1 * sqrt(u2) * v[1].y + (1 - sqrt(u2)) * v[2].y;
-		p.z = (1 - u1) * sqrt(u2) * v[0].z + u1 * sqrt(u2) * v[1].z + (1 - sqrt(u2)) * v[2].z;
-
-		return p;
+		return (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
 
 	}
 
@@ -209,7 +204,7 @@ public:
 		IntersectionPoint tmpIP;
 		if (!intersectChildren(mid + 1, r, AABB_index * 2 + 1, ray, tmpT, tmpIP)) return true;
 
-		if (tmpT < t) {
+		if (tmpT < t || (fabs(tmpT - t) < 1e-2 && length(tmpIP.mat->GetLightRadiance()) > length(IP.mat->GetLightRadiance()))) {
 
 			t = tmpT;
 			IP = tmpIP;

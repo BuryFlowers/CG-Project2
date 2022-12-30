@@ -20,6 +20,7 @@ public:
         transmittance = vec3(0);
         shiness = 1.0f;
         IOR = 1.0f;
+        radiance = vec3(0);
 
     }
 
@@ -38,6 +39,7 @@ public:
         transmittance = Transmittance;
         shiness = Shiness;
         IOR = Ior;
+        radiance = vec3(0);
 
     }
 
@@ -52,11 +54,25 @@ public:
 
     }
 
-    vec3 phongModel(vec3 wi, vec3 wo, vec3 cameraDirection, vec3 normal, vec2 uv, vec3 lightRadiance) {
+    /*vec3 phongModel(vec3 wi, vec3 wo, vec3 cameraDirection, vec3 normal, vec2 uv, vec3 lightRadiance) {
 
         vec3 result = diffuse * sampleTexture((int)uv.x, (int)uv.y) * dot(wo, normal) + specular * pow(dot(wi, cameraDirection), shiness);
 
         return result * lightRadiance;
+
+    }*/
+
+    void SetLightRadiance(vec3 R) { radiance = R; }
+    vec3 GetLightRadiance() { return radiance; }
+
+    vec3 phongModelBRDF(vec3 wi, vec3 wo, vec3 normal, vec2 uv) {
+
+        vec3 reflectDirection = 2 * dot(wi, normal) * normal - wi;
+        vec3 h = wi + reflectDirection;
+        h = normalize(h);
+        vec3 result = diffuse * sampleTexture((int)uv.x, (int)uv.y) * (1.0f / PI) + specular * (shiness + 2) / (2.0f * PI) * pow(max(dot(reflectDirection, wo), 0.0f), shiness);
+
+        return result;
 
     }
 
@@ -77,7 +93,13 @@ public:
         if (p < kd[rgb]) {
 
             vec2 w = vec2(acosf(sqrt(u1)), 2 * PI * u2);
-            vec3 wo = x * cosf(w.x) * sinf(w.y) + y * sinf(w.x) * sinf(w.y) + z * cosf(w.y);
+            vec3 direction;
+            direction.x = cosf(w.y) * sinf(w.x);
+            direction.y = cosf(w.x);
+            direction.z = sinf(w.y) * sinf(w.x);
+            direction = normalize(direction);
+            //vec3 wo = x * cosf(w.y) * sinf(w.x) + y * sinf(w.y) * sinf(w.x) + z * cosf(w.x);
+            vec3 wo = (x + y + z) * direction;
             wo = normalize(wo);
             r = Ray(IP.p, wo);
             return cosf(w.x) / PI;
@@ -88,10 +110,16 @@ public:
 
             vec3 reflectDirection = 2 * dot(wi, y) * y - wi;
             vec2 w = vec2(acosf(pow(u1, 1.0f / (shiness + 1.0f))), 2 * PI * u2);
-            vec3 wo = x * cosf(w.x) * sinf(w.y) + y * sinf(w.x) * sinf(w.y) + z * cosf(w.y);
+            vec3 direction;
+            direction.x = cosf(w.y) * sinf(w.x);
+            direction.y = cosf(w.x);
+            direction.z = sinf(w.y) * sinf(w.x);
+            direction = normalize(direction);
+            //vec3 wo = x * cosf(w.y) * sinf(w.x) + y * sinf(w.y) * sinf(w.x) + z * cosf(w.x);
+            vec3 wo = (x + y + z) * direction;
             wo = normalize(wo);
             r = Ray(IP.p, wo);
-            return (shiness + 1) / (0.5f * PI) * pow(dot(reflectDirection, wo), shiness);
+            return pow(max(dot(reflectDirection, wo), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
 
         }
 
@@ -129,6 +157,7 @@ private:
     vec3 transmittance;    //- *Tr * : the transmittance of material.
     float shiness;    //- *Ns * : shiness, the exponent of phong lobe.
     float IOR;    //- *Ni * : the * Index of Refraction(IOR) * of transparent object like glass and water.
+    vec3 radiance;
 
 };
 

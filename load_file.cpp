@@ -97,6 +97,7 @@ void LoadOBJ() {
 }
 
 extern tinyxml2::XMLDocument xmlDoc;
+extern float maxResult;
 
 Camera* LoadCamera() {
 
@@ -227,6 +228,9 @@ Light* LoadLight() {
 			radiance.x = strtod(radianceStr.substr(0, l).c_str(), NULL);
 			radiance.y = strtod(radianceStr.substr(l + 1, r - l - 1).c_str(), NULL);
 			radiance.z = strtod(radianceStr.substr(r + 1, radianceStr.length() - r - 1).c_str(), NULL);
+			if (radiance.x > maxResult) maxResult = radiance.x;
+			if (radiance.y > maxResult) maxResult = radiance.y;
+			if (radiance.z > maxResult) maxResult = radiance.z;
 
 			const char* materialName = xmlLg->Attribute("mtlname");
 			if (radianceStr.empty()) {
@@ -236,7 +240,16 @@ Light* LoadLight() {
 
 			}
 
-			lights[lightNum] = Light(radiance);
+			
+			for (int i = 0; i < materialNum; i++)
+				if (strcmp(materialName, materialList[i].Name()) == 0) {
+
+					materialList[i].SetLightRadiance(radiance);
+					lights[lightNum] = Light(radiance, &materialList[i]);
+					break;
+
+				}
+
 			for (int i = 0; i < triangleObjectNum; i++) triangleObjects[i].findLightTriangles(&lights[lightNum], materialName);
 
 			lightNum++;
