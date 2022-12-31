@@ -76,10 +76,13 @@ public:
 
     }
 
-    float randomBRDFRay(vec3 wi, Ray& r, IntersectionPoint IP, int rgb) {
+    bool randomBRDFRay(vec3 wi, IntersectionPoint IP, Ray& r, float& p) {
 
+        int rgb = rand() % 3;
         float u1 = rand() * 1.0f / RAND_MAX;
+        if (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
         float u2 = rand() * 1.0f / RAND_MAX;
+        if (u2 == 0.0f || u2 == 1.0f) u2 = rand() * 1.0f / RAND_MAX;
 
         vec3 y = IP.n;
         vec3 z = cross(y, wi);
@@ -87,10 +90,10 @@ public:
         vec3 x = cross(y, z);
         x = normalize(x);
 
-        float p = rand() * 1.0f / RAND_MAX;
+        float sampleP = rand() * 1.0f / RAND_MAX;
         vec3 kd = diffuse * sampleTexture((int)IP.uv.x, (int)IP.uv.y);
         vec3 ks = specular;
-        if (p < kd[rgb]) {
+        if (sampleP < kd[rgb]) {
 
             vec2 w = vec2(acosf(sqrt(u1)), 2 * PI * u2);
             vec3 direction;
@@ -102,11 +105,17 @@ public:
             vec3 wo = (x + y + z) * direction;
             wo = normalize(wo);
             r = Ray(IP.p, wo);
-            return cosf(w.x) / PI;
+            p = cosf(w.x) / PI;
+            if (p < 0) {
+
+                bool xx = true;
+
+            }
+            return true;
 
         }
 
-        else if (p < kd[rgb] + ks[rgb]) {
+        else if (sampleP < kd[rgb] + ks[rgb]) {
 
             vec3 reflectDirection = 2 * dot(wi, y) * y - wi;
             vec2 w = vec2(acosf(pow(u1, 1.0f / (shiness + 1.0f))), 2 * PI * u2);
@@ -119,11 +128,12 @@ public:
             vec3 wo = (x + y + z) * direction;
             wo = normalize(wo);
             r = Ray(IP.p, wo);
-            return pow(max(dot(reflectDirection, wo), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
+            p = pow(max(dot(reflectDirection, wo), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
+            return true;
 
         }
 
-        else return -1.0f;
+        else return false;
 
     }
 

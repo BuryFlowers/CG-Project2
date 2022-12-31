@@ -20,25 +20,21 @@ struct IntersectionPoint {
 
 struct PathPoint {
 
-    PathPoint(vec3 X, vec3 N, vec3 Wi, vec2 UV, float F, float P, Material* Mat) {
+    PathPoint(IntersectionPoint IP, vec3 Wi, float T, vec3 F, float P) {
 
-        x = X;
-        n = N;
+        ip = IP;
         wi = Wi;
-        uv = UV;
+        t = T;
         f = F;
         p = P;
-        mat = Mat;
-
+  
     }
      
-    vec3 x;
-    vec3 n;
+    IntersectionPoint ip;
     vec3 wi;
-    vec2 uv;
-    float f;
+    float t;
+    vec3 f;
     float p;
-    Material* mat;
 
 };
 

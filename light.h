@@ -38,6 +38,7 @@ public:
 
 	bool intersect(Ray r, float& t, IntersectionPoint& IP) {
 
+		t = 1e10;
 		bool flag = false;
 		for (int i = 0; i < mesh.size(); i++) {
 
@@ -57,7 +58,7 @@ public:
 			
 	}
 
-	float randomLightRay(vec3 point, Ray& r, vec3& lightPosition) {
+	float randomLightRay(vec3 point, Ray& r, IntersectionPoint& lightIP) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -74,15 +75,16 @@ public:
 
 		}
 
-		lightPosition = m->uniformSampling();
-		vec3 d = lightPosition - point;
+		m->uniformSampling(lightIP);
+		vec3 d = lightIP.p - point;
 		d = normalize(d);
 		r = Ray(point, d);
 		//return length(direction) * length(direction) / ()
-		return 1.0f;
+		return 1.0f / A;
 
 	}
 
+	float area() { return A; }
 	vec3 Radiance() { return radiance; }
 	Material* Mat() { return mat; }
 
