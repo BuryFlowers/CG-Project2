@@ -56,11 +56,16 @@ public:
 	virtual bool intersect(Ray r, float& t, IntersectionPoint& IP) {
 
 		if (fabs(dot(r.direction(), planeNormal)) < 1e-5) return false;
+		if (A == 0) return false;
 
+		float tmp1 = dot(r.direction(), planeNormal);
+		float tmp2 = (v0N - dot(r.origin(), planeNormal));
 		t = (v0N - dot(r.origin(), planeNormal)) / dot(r.direction(), planeNormal);
 		if (t < 1e-3) return false;
 
 		vec3 p = r.pointAt(t);
+
+		float tmp = dot(planeNormal, p - v[0]);
 
 		vec3 t1 = cross(v[0] - p, v[1] - p);
 		vec3 t2 = cross(v[1] - p, v[2] - p);
@@ -85,15 +90,12 @@ public:
 
 	}
 
-	virtual void uniformSampling(IntersectionPoint& IP) {
+	virtual vec3 uniformSampling() {
 
 		float u1 = rand() * 1.0f / RAND_MAX;
 		float u2 = rand() * 1.0f / RAND_MAX;
 
-		IP.p = (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
-		IP.n = (1 - u1) * sqrt(u2) * n[0] + u1 * sqrt(u2) * n[1] + (1 - sqrt(u2)) * n[2];
-		IP.uv = (1 - u1) * sqrt(u2) * uv[0] + u1 * sqrt(u2) * uv[1] + (1 - sqrt(u2)) * uv[2];
-		IP.mat = this->mat;
+		return (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
 
 	}
 
@@ -147,14 +149,14 @@ public:
 
 		float t0, t1;
 		float tmin = 0, tmax = 0;
-		bool firstT = false;
+		bool firstT = true;
 
 		if (fabs(d.x) > 1e-5) {
 
 			t0 = (v1.x - o.x) / d.x;
 			t1 = (v2.x - o.x) / d.x;
 			if (t0 > t1) std::swap(t0, t1);
-			if (!firstT) tmin = t0, tmax = t1, firstT = true;
+			if (firstT) tmin = t0, tmax = t1, firstT = false;
 			else {
 
 				if (tmin < t0) tmin = t0;
@@ -169,7 +171,7 @@ public:
 			t0 = (v1.y - o.y) / d.y;
 			t1 = (v2.y - o.y) / d.y;
 			if (t0 > t1) std::swap(t0, t1);
-			if (!firstT) tmin = t0, tmax = t1, firstT = true;
+			if (firstT) tmin = t0, tmax = t1, firstT = false;
 			else {
 
 				if (tmin < t0) tmin = t0;
@@ -177,7 +179,8 @@ public:
 
 			}
 
-			if (tmin > tmax) return false;
+			if (tmin > tmax + 1e-3) return false;
+
 
 		}
 
@@ -186,7 +189,7 @@ public:
 			t0 = (v1.z - o.z) / d.z;
 			t1 = (v2.z - o.z) / d.z;
 			if (t0 > t1) std::swap(t0, t1);
-			if (!firstT) tmin = t0, tmax = t1, firstT = true;
+			if (firstT) tmin = t0, tmax = t1, firstT = false;
 			else {
 
 				if (tmin < t0) tmin = t0;
@@ -198,7 +201,7 @@ public:
 
 		}
 
-		if (!firstT) return false;
+		if (firstT) return false;
 
 		int mid = (l + r) / 2;
 		if (!intersectChildren(l, mid, AABB_index * 2, ray, t, IP)) return intersectChildren(mid + 1, r, AABB_index * 2 + 1, ray, t, IP);
@@ -207,7 +210,7 @@ public:
 		IntersectionPoint tmpIP;
 		if (!intersectChildren(mid + 1, r, AABB_index * 2 + 1, ray, tmpT, tmpIP)) return true;
 
-		if (tmpT < t || (fabs(tmpT - t) < 1e-2 && length(tmpIP.mat->GetLightRadiance()) > length(IP.mat->GetLightRadiance()))) {
+		if (tmpT < t) {
 
 			t = tmpT;
 			IP = tmpIP;
@@ -224,7 +227,7 @@ public:
 
 	}
 
-	virtual void uniformSampling(IntersectionPoint& IP) {
+	virtual vec3 uniformSampling() {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -241,7 +244,7 @@ public:
 
 		}
 
-		t->uniformSampling(IP);
+		return t->uniformSampling();
 
 	}
 
@@ -286,17 +289,6 @@ public:
 		v1 = new vec3[triangles.size() * 3 + 1];
 		v2 = new vec3[triangles.size() * 3 + 1];
 		updateBVH(0, triangles.size() - 1, 1, 0);
-
-	}
-
-	void findLightTriangles(Light* light, const char* name) {
-
-		for (int i = 0; i < triangles.size(); i++)
-			if (strcmp(name, triangles[i]->Mat()->Name()) == 0) {
-
-				light->addMesh(triangles[i]);
-
-			}
 
 	}
 

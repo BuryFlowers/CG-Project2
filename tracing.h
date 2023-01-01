@@ -38,5 +38,4 @@ struct PathPoint {
 
 };
 
-
 #endif // !TRACING

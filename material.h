@@ -8,6 +8,15 @@
 
 using namespace glm;
 
+struct Texture {
+
+    unsigned char* image;
+    int width;
+    int height;
+    int channel;
+
+};
+
 class Material {
 
 public:
@@ -24,17 +33,11 @@ public:
 
     }
 
-    Material(const char* Name, vec3 Diffuse, const char* texturePath, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
+    Material(const char* Name, vec3 Diffuse, Texture* Tex, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
 
         name = Name;
         diffuse = Diffuse;
-        if (strlen(texturePath) != 0) {
-
-            texture = new Texture();
-            texture->image = stbi_load(texturePath, &texture->width, &texture->height, &texture->channel, 0);
-
-        }
-        else texture = NULL;
+        texture = Tex;
         specular = Specular;
         transmittance = Transmittance;
         shiness = Shiness;
@@ -43,7 +46,7 @@ public:
 
     }
 
-    ~Material() {
+    /*~Material() {
 
         if (texture != NULL) {
 
@@ -52,14 +55,6 @@ public:
 
         }
 
-    }
-
-    /*vec3 phongModel(vec3 wi, vec3 wo, vec3 cameraDirection, vec3 normal, vec2 uv, vec3 lightRadiance) {
-
-        vec3 result = diffuse * sampleTexture((int)uv.x, (int)uv.y) * dot(wo, normal) + specular * pow(dot(wi, cameraDirection), shiness);
-
-        return result * lightRadiance;
-
     }*/
 
     void SetLightRadiance(vec3 R) { radiance = R; }
@@ -67,68 +62,56 @@ public:
 
     vec3 phongModelBRDF(vec3 wi, vec3 wo, vec3 normal, vec2 uv) {
 
-        vec3 reflectDirection = 2 * dot(wi, normal) * normal - wi;
-        vec3 h = wi + reflectDirection;
-        h = normalize(h);
-        vec3 result = diffuse * sampleTexture((int)uv.x, (int)uv.y) * (1.0f / PI) + specular * (shiness + 2) / (2.0f * PI) * pow(max(dot(reflectDirection, wo), 0.0f), shiness);
+        if (dot(wo, normal) < 0 || dot(wi, normal) < 0) return vec3(0);
+        vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
+        vec3 d = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI);
+        float p = pow(max(dot(reflectDirection, wo), 0.0f), shiness);
+        vec3 s = specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
+        //vec3 d = diffuse * (1.0f / PI);
+        //if (texture != NULL) d = sampleTexture((int)uv.x, (int)uv.y)
+        vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
 
         return result;
 
     }
 
-    bool randomBRDFRay(vec3 wi, IntersectionPoint IP, Ray& r, float& p) {
+    bool randomBRDFRay(vec3 wo, IntersectionPoint IP, Ray& r, float& p) {
 
+        if (dot(wo, IP.n) < 0) return false;
         int rgb = rand() % 3;
         float u1 = rand() * 1.0f / RAND_MAX;
-        if (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
+        while (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
         float u2 = rand() * 1.0f / RAND_MAX;
-        if (u2 == 0.0f || u2 == 1.0f) u2 = rand() * 1.0f / RAND_MAX;
+        while (u2 == 0.0f || u2 == 1.0f) u2 = rand() * 1.0f / RAND_MAX;
 
         vec3 y = IP.n;
-        vec3 z = cross(y, wi);
-        z = normalize(z);
-        vec3 x = cross(y, z);
-        x = normalize(x);
+        vec3 z = normalize(cross(y, wo));
+        vec3 x = normalize(cross(y, z));
 
-        float sampleP = rand() * 1.0f / RAND_MAX;
-        vec3 kd = diffuse * sampleTexture((int)IP.uv.x, (int)IP.uv.y);
+        //float sampleDiffuse = rand() * 1.0f / RAND_MAX;
+        float sampleDiffuse = 0.0f;
+        vec3 kd = diffuse * sampleTexture(IP.uv.x, IP.uv.y);
         vec3 ks = specular;
-        if (sampleP < kd[rgb]) {
+        if (sampleDiffuse <= kd[rgb]) {
 
             vec2 w = vec2(acosf(sqrt(u1)), 2 * PI * u2);
-            vec3 direction;
-            direction.x = cosf(w.y) * sinf(w.x);
-            direction.y = cosf(w.x);
-            direction.z = sinf(w.y) * sinf(w.x);
-            direction = normalize(direction);
-            //vec3 wo = x * cosf(w.y) * sinf(w.x) + y * sinf(w.y) * sinf(w.x) + z * cosf(w.x);
-            vec3 wo = (x + y + z) * direction;
-            wo = normalize(wo);
-            r = Ray(IP.p, wo);
+            vec3 wi = x * cosf(w.y) * sinf(w.x) + y * cosf(w.x) + z * sinf(w.y) * sinf(w.x);
+   
+            r = Ray(IP.p, wi);
             p = cosf(w.x) / PI;
-            if (p < 0) {
-
-                bool xx = true;
-
-            }
             return true;
 
         }
 
-        else if (sampleP < kd[rgb] + ks[rgb]) {
+        else if (sampleDiffuse <= kd[rgb] + ks[rgb]) {
 
-            vec3 reflectDirection = 2 * dot(wi, y) * y - wi;
+            vec3 reflectDirection = normalize(2 * dot(wo, y) * y - wo);
             vec2 w = vec2(acosf(pow(u1, 1.0f / (shiness + 1.0f))), 2 * PI * u2);
-            vec3 direction;
-            direction.x = cosf(w.y) * sinf(w.x);
-            direction.y = cosf(w.x);
-            direction.z = sinf(w.y) * sinf(w.x);
-            direction = normalize(direction);
-            //vec3 wo = x * cosf(w.y) * sinf(w.x) + y * sinf(w.y) * sinf(w.x) + z * cosf(w.x);
-            vec3 wo = (x + y + z) * direction;
-            wo = normalize(wo);
-            r = Ray(IP.p, wo);
-            p = pow(max(dot(reflectDirection, wo), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
+            vec3 wi = x * cosf(w.y) * sinf(w.x) + y * cosf(w.x) + z * sinf(w.y) * sinf(w.x);
+
+            r = Ray(IP.p, wi);
+            p = pow(max(dot(reflectDirection, wi), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
+            if (p == 0.0f) return this->randomBRDFRay(wo, IP, r, p);
             return true;
 
         }
@@ -139,14 +122,19 @@ public:
 
     const char* Name() { return name.c_str(); }
 
-    vec3 sampleTexture(int x, int y) {
+    vec3 sampleTexture(float x, float y) {
 
         if (texture == NULL) return vec3(1.0f);
-        if (x < 0) x %= texture->width, x += texture->width;
-        if (y < 0) y %= texture->height, y += texture->height;
-        if (x > texture->width) x %= texture->width;
-        if (y > texture->height) y %= texture->height;
-        int index = (x + y * texture->width) * texture->channel;
+        while (x < 0) x += 1.0f;
+        while (y < 0) y += 1.0f;
+        if (x > 1.0f) x -= 1.0f;
+        if (y > 1.0f) y -= 1.0f;
+
+        int i = x * texture->width;
+        int j = x * texture->height;
+        int index = (i + (texture->height - j - 1) * texture->width) * texture->channel;
+        vec3 color = vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
+
         return vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
 
     }
@@ -155,14 +143,7 @@ private:
 
     std::string name;
     vec3 diffuse;//-*Kd * : the diffuse reflectance of material, * map_Kd* is the texture file path.
-    struct Texture {
-
-        unsigned char* image;
-        int width;
-        int height;
-        int channel;
-
-    }*texture;
+    Texture* texture;
     vec3 specular;    //- *Ks * : the specular reflectance of material.
     vec3 transmittance;    //- *Tr * : the transmittance of material.
     float shiness;    //- *Ns * : shiness, the exponent of phong lobe.

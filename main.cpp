@@ -13,7 +13,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "cornell-box";
+std::string sceneName = "staircase";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -28,15 +28,16 @@ Light* LoadLight();
 Light* lights;
 int lightNum;
 
-const float RRPThreshold = 0.8f;
-int SPP = 100;
+const float RRThreshold = 0.8f;
+int SPP = 10;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
-const float gamma = 0.5f;
+const float gamma = 2.2f;
 char* image;
-bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP, int& hitLight);
-bool getPathTracingResult(int x, int y, int lastLight);
+bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP);
+bool lightIntersectionCheck(Ray r, float& t, IntersectionPoint& IP);
+vec3 pathTracing(IntersectionPoint IP, vec3 wo);
 
 float ACESToneMapping(float color, float adapted_lum);
 float ACESFilm(float x);
@@ -45,22 +46,16 @@ int main() {
 
 	srand(time(0));
 
-	LoadOBJ();
 	cam = LoadCamera();
 	lights = LoadLight();
+	LoadOBJ();
 
 	result = new float[cam->Width() * cam->Height() * 3];
 	image = new char[cam->Width() * cam->Height() * 3];
-	float maxT = 0;
 
 	for (int i = 0; i < cam->Width(); i++) {
 		for (int j = 0; j < cam->Height(); j++){
 
-			if (i == 53 && j == 109) {
-
-				bool xx = true;
-
-			}
 			int index = (i * cam->Height() + j) * 3;
 			float completePath = 0.0f;
 			result[index] = 0.0f;
@@ -70,48 +65,35 @@ int main() {
 			for (int k = 0; k < SPP; k++) {
 
 				Ray r = cam->pixelRay(i, j);
-				paths.clear();
-				float t;
-				IntersectionPoint IP;
-				int hitLight = -1;
-				if (intersctionCheck(r, t, IP, hitLight)) {
 
-					float RRP = rand() * 1.0f / RAND_MAX;
-					float p = 1.0f;
-					int currentPath = 0;
-					paths.push_back(PathPoint(IP, r.direction() * -1.0f, t, vec3(0), p));
-						
-					while (RRP < RRPThreshold && hitLight == -1) {
+				vec3 color = vec3(0);
+				float t, lightT;
+				IntersectionPoint IP, lightIP;
+				if (!intersectionCheck(r, t, IP)) {
 
-						if (!IP.mat->randomBRDFRay(paths[currentPath].wi, IP, r, p)) break;
-						if (!intersctionCheck(r, t, IP, hitLight)) break;
-						RRP = rand() * 1.0f / RAND_MAX;
-						paths.push_back(PathPoint(IP, r.direction() * -1.0f, t, vec3(0), p / RRPThreshold));
+					if (lightIntersectionCheck(r, lightT, lightIP)) color = lightIP.mat->GetLightRadiance();
+					else color = vec3(0);
 
-					}
+				}
+				else {
+
+					if (lightIntersectionCheck(r, lightT, lightIP) && lightT - t < 1e-3) color = lightIP.mat->GetLightRadiance();
+					else color = pathTracing(IP, r.direction() * -1.0f);
 
 				}
 
-				else break;
-
-				if (getPathTracingResult(i, j, hitLight)) completePath++;
-
-			}
-
-			if (completePath != 0.0f) {
-
-				result[index] /= completePath;
-				result[index + 1] /= completePath;
-				result[index + 2] /= completePath;
+				result[index] += color.x;
+				result[index + 1] += color.y;
+				result[index + 2] += color.z;
 
 			}
-			/*result[index] /= (1.0f * SPP);
-			result[index + 1] /= (1.0f * SPP);
-			result[index + 2] /= (1.0f * SPP);*/
-			result[index] = clamp(result[index], 0.0f, 1.0f);
-			result[index + 1] = clamp(result[index + 1], 0.0f, 1.0f);
-			result[index + 2] = clamp(result[index + 2], 0.0f, 1.0f);
-			//if (result[(i * cam->Height() + j) * 3 + rgb] > maxResult) maxResult = result[(i * cam->Height() + j) * 3 + rgb];
+
+			for (int k = 0; k < 3; k++) {
+
+				result[index + k] /= (1.0f * SPP);
+				result[index + k] = clamp(result[index + k], 0.0f, 1.0f);
+
+			}
 
 		}
 
@@ -119,34 +101,13 @@ int main() {
 
 	}
 
-	/*for (int i = 0; i < cam->Width(); i++) {
-		for (int j = 0; j < cam->Height(); j++)
-			printf("%.0lf %.0lf %.0lf   ", result[(j + i * cam->Height()) * 3], result[(j + i * cam->Height()) * 3 + 1], result[(j + i * cam->Height()) * 3 + 2]);
-		printf("%\n");
-	}*/
-
-	//float adaptedLum = 0.0f;
-	//for (int i = 0; i < cam->Width(); i++)
-	//	for (int j = 0; j < cam->Height(); j++) adaptedLum += result[(j + i * cam->Height()) * 3] * 0.299f + result[(j + i * cam->Height()) * 3 + 1] * 0.587f + result[(j + i * cam->Height()) * 3 + 2] * 0.114f;
-	//adaptedLum /= 1.0f * cam->Width() * cam->Height();
-
-	//for (int i = 0; i < cam->Width(); i++)
-	//	for (int j = 0; j < cam->Height(); j++)
-	//		for (int k = 0; k < 3; k++) result[(j + i * cam->Height()) * 3 + k] = ACESToneMapping(result[(j + i * cam->Height()) * 3 + k], adaptedLum);
-	
-	for (int i = 0; i < cam->Width(); i++) {
-		for (int j = 0; j < cam->Height(); j++)
-			printf("%.2lf %.2lf %.2lf   ", result[(j + i * cam->Height()) * 3], result[(j + i * cam->Height()) * 3 + 1], result[(j + i * cam->Height()) * 3 + 2]);
-		printf("%\n");
-	}
-
 	for (int i = 0; i < cam->Width(); i++) 
 		for (int j = 0; j < cam->Height(); j++)
 			for (int k = 0; k < 3; k++) 
-				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = pow(result[(j + i * cam->Height()) * 3 + k], gamma) * 255.0f;
+				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = pow(result[(j + i * cam->Height()) * 3 + k], 1.0f / gamma) * 255.0f;
 
 
-	stbi_write_jpg((sceneName + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
+	stbi_write_jpg((sceneName + "_" + std::to_string(cam->Width()) + "X" + std::to_string(cam->Height()) + "_" + std::to_string(SPP) + "SPP" + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
 
 }
 
@@ -174,11 +135,10 @@ float ACESFilm(float x) {
 
 }
 
-bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP, int& hitLight) {
+bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
 	t = 1e10;
 	bool flag = false;
-	hitLight = -1;
 	for (int l = 0; l < triangleObjectNum; l++) {
 
 		float tmpT;
@@ -193,78 +153,88 @@ bool intersctionCheck(Ray r, float& t, IntersectionPoint& IP, int& hitLight) {
 
 	}
 
-	if (!flag) return false;
-
-	float lightT = 1e10;
-	IntersectionPoint lightIP;
-	for (int l = 0; l < lightNum; l++) if (lights[l].intersect(r, lightT, lightIP) && fabs(lightT - t) < 1e-5) {
-
-		hitLight = l;
-		break;
-
-	}
-
-	return true;
+	return flag;
 
 }
 
-bool getPathTracingResult(int x, int y, int lastIsLight) {
+bool lightIntersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
-	int last = paths.size() - 1;
-	if (last < 0) return false;
+	t = 1e10;
+	bool flag = false;
+	for (int l = 0; l < lightNum; l++) {
 
-	if (last == 0 && lastIsLight != -1) {
+		float tmpT;
+		IntersectionPoint tmpIP;
+		if (lights[l].intersect(r, tmpT, tmpIP) && tmpT < t) {
 
-		bool xx = true;
+			t = tmpT;
+			IP = tmpIP;
+			flag = true;
+
+		}
 
 	}
 
-	bool flag = false;
-	if (lastIsLight != -1) paths[last].f = paths[last].ip.mat->GetLightRadiance() * max(dot(paths[last].ip.n, paths[last].wi), 0.0f) * lights[lastIsLight].area() / (paths[last].t * paths[last].t);
-	else for (int i = 0; i < lightNum; i++) {
+	return flag;
 
-			Ray r;
-			IntersectionPoint lightIP;
-			float p = lights[i].randomLightRay(paths[last].ip.p, r, lightIP);
-			float t;
-			IntersectionPoint IP;
-			int hitLight;
-			intersctionCheck(r, t, IP, hitLight);
-			//float len = length(IP.p - lightIP.p);
-			if (hitLight == i) {
+}
 
-				vec3 L = lights[i].Radiance() * max(dot(lightIP.n, r.direction() * -1.0f), 0.0f) / (t * t * p);
-				vec3 brdf = paths[last].ip.mat->phongModelBRDF(paths[last].wi, r.direction(), paths[last].ip.n, paths[last].ip.uv);
-				float cos = max(dot(paths[last].ip.n, r.direction()), 0.0f);
-				paths[last].f +=  L * brdf * cos;
-				flag = true;
+
+
+vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
+
+	vec3 brdf;
+	float cos;
+
+	vec3 directLight = vec3(0);
+	float lightT;
+	IntersectionPoint lightIP;
+	for (int i = 0; i < lightNum; i++) {
+			
+			Ray lightRay;
+			vec3 lightPosition = lights[i].randomLightRay(IP.p, lightRay);
+			float lightDistance = length(IP.p - lightPosition);
+			bool hitLight = false;
+			if (lightIntersectionCheck(lightRay, lightT, lightIP) && fabs(lightT - lightDistance) < 1e-3) {
+
+				float tmpT;
+				IntersectionPoint tmpIP;
+				if (!intersectionCheck(lightRay, tmpT, tmpIP)) hitLight = true;
+				else if (lightDistance - tmpT < 1e-3) hitLight = true;
+
+			}
+
+			if (hitLight) {
+
+				vec3 wi = lightRay.direction();
+				brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
+				cos = max(dot(IP.n, wi), 0.0f);
+				directLight += brdf * cos * lights[i].Radiance() * max(dot(lightIP.n, wi * -1.0f), 0.0f) * lights[i].area() / (lightT * lightT);
 
 			}
 
 	}
 
-	for (int i = last - 1; i >= 0; i--) {
+	float tmpT;
+	IntersectionPoint tmpIP;
+	vec3 indirectLight = vec3(0);
+	float RR = rand() * 1.0f / RAND_MAX;
+	if (RR < RRThreshold) {
 
-		vec3 wo = paths[i + 1].wi * -1.0f;
-		wo = normalize(wo);
-		vec3 L = paths[i + 1].f / paths[i + 1].p;
-		vec3 brdf = paths[i].ip.mat->phongModelBRDF(paths[i].wi, wo, paths[i].ip.n, paths[i].ip.uv);
-		float cos = max(dot(paths[i].ip.n, wo), 0.0f);
-		paths[i].f += paths[i].ip.mat->GetLightRadiance() * max(dot(paths[i].ip.n, paths[i].wi), 0.0f) / (paths[i].t * paths[i].t) +  L * brdf * cos;
+		Ray nextRay;
+		float p = 1.0f;
+		if (IP.mat->randomBRDFRay(wo, IP, nextRay, p)) {
 
-	}
+			if (!intersectionCheck(nextRay, tmpT, tmpIP)) return directLight;
+			vec3 wi = nextRay.direction();
+			brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
+			cos = max(dot(IP.n, wi), 0.0f);
+			indirectLight = brdf * cos * pathTracing(tmpIP, nextRay.direction() * -1.0f) / (p * RRThreshold);
 
-	int index = (x * cam->Height() + y) * 3;
-	result[index] += paths[0].f.x;
-	result[index + 1] += paths[0].f.y;
-	result[index + 2] += paths[0].f.z;
-
-	if (paths[0].f.x >= 1.0f && paths[0].f.y >= 1.0f && paths[0].f.z >= 1.0f) {
-
-		bool xx = true;
+		}
 
 	}
 
-	return flag;
+	return directLight + indirectLight;
 
 }

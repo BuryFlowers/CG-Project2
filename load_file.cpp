@@ -20,82 +20,6 @@ extern Material* materialList;
 extern int triangleObjectNum;
 extern TriangleObject* triangleObjects;
 
-void LoadOBJ() {
-
-	std::string objPath = dataPath + sceneName + "/" + sceneName + ".obj";
-	tinyobj::ObjReaderConfig readerConfig;
-	readerConfig.mtl_search_path = dataPath + sceneName + "/";
-
-	tinyobj::ObjReader reader;
-
-	if (!reader.ParseFromFile(objPath, readerConfig)) {
-		if (!reader.Error().empty()) {
-			std::cerr << "[Error]TinyObjReader: " << reader.Error();
-		}
-		exit(1);
-	}
-
-	if (!reader.Warning().empty()) {
-		std::cout << "[Warning]TinyObjReader: " << reader.Warning();
-	}
-
-	auto& attrib = reader.GetAttrib();
-	auto& shapes = reader.GetShapes();
-	auto& materials = reader.GetMaterials();
-
-	materialNum = materials.size();
-	materialList = new Material[materialNum]();
-	for (int i = 0; i < materialNum; i++) {
-
-		const char* Name = materials[i].name.c_str();
-		vec3 Diffuse = vec3(materials[i].diffuse[0], materials[i].diffuse[1], materials[i].diffuse[2]);
-		const char* texturePath = (char*)materials[i].diffuse_texname.c_str();
-		vec3 Specular = vec3(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2]);
-		vec3 Transmittance = vec3(materials[i].transmittance[0], materials[i].transmittance[1], materials[i].transmittance[2]);
-		materialList[i] = Material(Name, Diffuse, texturePath, Specular, Transmittance, materials[i].shininess, materials[i].ior);
-
-	}
-
-	triangleObjectNum = shapes.size();
-	triangleObjects = new TriangleObject[triangleObjectNum]();
-	
-	int offset = 0;
-	for (int i = 0; i < shapes.size(); i++) {
-
-		for (int j = 0; j < shapes[i].mesh.num_face_vertices.size(); j++) {
-
-			vec3 v[3], n[3];
-			vec2 uv[3];
-			for (int k = 0; k < 3; k++) {
-
-				tinyobj::index_t index = shapes[i].mesh.indices[j * 3 + k];
-
-				v[k].x = attrib.vertices[3 * size_t(index.vertex_index) + 0];
-				v[k].y = attrib.vertices[3 * size_t(index.vertex_index) + 1];
-				v[k].z = attrib.vertices[3 * size_t(index.vertex_index) + 2];
-
-				n[k].x = attrib.normals[3 * size_t(index.normal_index) + 0];
-				n[k].y = attrib.normals[3 * size_t(index.normal_index) + 1];
-				n[k].z = attrib.normals[3 * size_t(index.normal_index) + 2];
-
-				uv[k].x = attrib.normals[3 * size_t(index.texcoord_index) + 0];
-				uv[k].y = attrib.normals[3 * size_t(index.texcoord_index) + 1];
-
-			}
-
-			Triangle* tmpTriangle = new Triangle(v, n, uv, &materialList[shapes[i].mesh.material_ids[j]]);
-			triangleObjects[i].addTriangle(tmpTriangle);
-
-		}
-
-		triangleObjects[i].buildBVH();
-
-	}
-
-	printf("[Success]Scene has been loaded!\n");
-
-}
-
 extern tinyxml2::XMLDocument xmlDoc;
 extern float maxResult;
 
@@ -190,6 +114,7 @@ Camera* LoadCamera() {
 }
 
 extern int lightNum;
+extern Light* lights;
 Light* LoadLight() {
 
 	std::string xmlPath = dataPath + sceneName + "/" + sceneName + ".xml";
@@ -232,25 +157,15 @@ Light* LoadLight() {
 			if (radiance.y > maxResult) maxResult = radiance.y;
 			if (radiance.z > maxResult) maxResult = radiance.z;
 
-			const char* materialName = xmlLg->Attribute("mtlname");
-			if (radianceStr.empty()) {
+			std::string materialName = xmlLg->Attribute("mtlname");
+			if (materialName.empty()) {
 
 				printf("[Error]Some light material was not found!\n");
 				exit(-1);
 
 			}
 
-			
-			for (int i = 0; i < materialNum; i++)
-				if (strcmp(materialName, materialList[i].Name()) == 0) {
-
-					materialList[i].SetLightRadiance(radiance);
-					lights[lightNum] = Light(radiance, &materialList[i]);
-					break;
-
-				}
-
-			for (int i = 0; i < triangleObjectNum; i++) triangleObjects[i].findLightTriangles(&lights[lightNum], materialName);
+			lights[lightNum] = Light(radiance, materialName);
 
 			lightNum++;
 
@@ -262,5 +177,106 @@ Light* LoadLight() {
 
 	printf("[Success]Light configuration has been loaded!\n");
 	return lights;
+
+}
+
+void LoadOBJ() {
+
+	std::string objPath = dataPath + sceneName + "/" + sceneName + ".obj";
+	tinyobj::ObjReaderConfig readerConfig;
+	readerConfig.mtl_search_path = dataPath + sceneName + "/";
+
+	tinyobj::ObjReader reader;
+
+	if (!reader.ParseFromFile(objPath, readerConfig)) {
+		if (!reader.Error().empty()) {
+			std::cerr << "[Error]TinyObjReader: " << reader.Error();
+		}
+		exit(1);
+	}
+
+	if (!reader.Warning().empty()) {
+		std::cout << "[Warning]TinyObjReader: " << reader.Warning();
+	}
+
+	auto& attrib = reader.GetAttrib();
+	auto& shapes = reader.GetShapes();
+	auto& materials = reader.GetMaterials();
+
+	materialNum = materials.size();
+	materialList = new Material[materialNum]();
+	for (int i = 0; i < materialNum; i++) {
+
+		const char* Name = materials[i].name.c_str();
+		vec3 Diffuse = vec3(materials[i].diffuse[0], materials[i].diffuse[1], materials[i].diffuse[2]);
+		Texture* Tex = NULL;
+		if (!materials[i].diffuse_texname.empty()) {
+
+			Tex = new Texture();
+			Tex->image = stbi_load((dataPath + sceneName + "/" + materials[i].diffuse_texname).c_str(), &Tex->width, &Tex->height, &Tex->channel, 0);
+
+		}
+		vec3 Specular = vec3(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2]);
+		vec3 Transmittance = vec3(materials[i].transmittance[0], materials[i].transmittance[1], materials[i].transmittance[2]);
+		materialList[i] = Material(Name, Diffuse, Tex, Specular, Transmittance, materials[i].shininess, materials[i].ior);
+
+		for (int j = 0; j < lightNum; j++)
+			if (strcmp(lights[j].Name().c_str(), materials[i].name.c_str()) == 0) lights[j].SetMat(&materialList[i]);
+
+	}
+
+	
+
+	triangleObjectNum = shapes.size();
+	triangleObjects = new TriangleObject[triangleObjectNum]();
+
+	int offset = 0;
+	for (int i = 0; i < shapes.size(); i++) {
+
+		for (int j = 0; j < shapes[i].mesh.num_face_vertices.size(); j++) {
+
+			vec3 v[3], n[3];
+			vec2 uv[3];
+			for (int k = 0; k < 3; k++) {
+
+				tinyobj::index_t index = shapes[i].mesh.indices[j * 3 + k];
+
+				v[k].x = attrib.vertices[3 * size_t(index.vertex_index) + 0];
+				v[k].y = attrib.vertices[3 * size_t(index.vertex_index) + 1];
+				v[k].z = attrib.vertices[3 * size_t(index.vertex_index) + 2];
+
+				n[k].x = attrib.normals[3 * size_t(index.normal_index) + 0];
+				n[k].y = attrib.normals[3 * size_t(index.normal_index) + 1];
+				n[k].z = attrib.normals[3 * size_t(index.normal_index) + 2];
+
+				uv[k].x = attrib.normals[3 * size_t(index.texcoord_index) + 0];
+				uv[k].y = attrib.normals[3 * size_t(index.texcoord_index) + 1];
+
+			}
+
+			Triangle* tmpTriangle = new Triangle(v, n, uv, &materialList[shapes[i].mesh.material_ids[j]]);
+			bool isLight = false;
+
+			for (int k = 0; k < lightNum; k++) 
+				if (lights[k].Mat() == &materialList[shapes[i].mesh.material_ids[j]]) {
+
+					materialList[shapes[i].mesh.material_ids[j]].SetLightRadiance(lights[k].Radiance());
+					lights[k].addMesh(tmpTriangle);
+					isLight = true;
+					break;
+
+				}
+
+			if (!isLight) triangleObjects[i].addTriangle(tmpTriangle);
+
+		}
+
+		triangleObjects[i].buildBVH();
+
+	}
+
+	for (int i = 0; i < lightNum; i++) lights[i].buildBVH();
+
+	printf("[Success]Scene has been loaded!\n");
 
 }

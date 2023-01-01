@@ -15,7 +15,7 @@ public:
 	virtual void AABB(vec3& v1, vec3& v2) = 0;
 	virtual float area() = 0;
 	virtual bool intersect(Ray r, float &t, IntersectionPoint &IP) = 0;
-	virtual void uniformSampling(IntersectionPoint& IP) = 0;
+	virtual vec3 uniformSampling() = 0;
 
 	static bool cmpx(Mesh* a, Mesh* b) {
 
