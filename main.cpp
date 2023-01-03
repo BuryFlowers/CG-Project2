@@ -7,13 +7,14 @@
 #include "mesh.h"
 #include "triangle.h"
 #include "light.h"
+#include "omp.h"
 #include <string>
 #include <time.h>
 
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "staircase";
+std::string sceneName = "cornell-box";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -29,7 +30,7 @@ Light* lights;
 int lightNum;
 
 const float RRThreshold = 0.8f;
-int SPP = 10;
+int SPP = 1000;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
@@ -53,6 +54,7 @@ int main() {
 	result = new float[cam->Width() * cam->Height() * 3];
 	image = new char[cam->Width() * cam->Height() * 3];
 
+	#pragma omp parallel
 	for (int i = 0; i < cam->Width(); i++) {
 		for (int j = 0; j < cam->Height(); j++){
 
@@ -65,6 +67,12 @@ int main() {
 			for (int k = 0; k < SPP; k++) {
 
 				Ray r = cam->pixelRay(i, j);
+
+				if (i == 512 && j == cam->Height() - 512) {
+
+					bool xx = true;
+
+				}
 
 				vec3 color = vec3(0);
 				float t, lightT;
@@ -217,24 +225,32 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 	float tmpT;
 	IntersectionPoint tmpIP;
-	vec3 indirectLight = vec3(0);
+	Ray nextRay;
+	vec3 reflectionLight = vec3(0);
 	float RR = rand() * 1.0f / RAND_MAX;
 	if (RR < RRThreshold) {
 
-		Ray nextRay;
 		float p = 1.0f;
 		if (IP.mat->randomBRDFRay(wo, IP, nextRay, p)) {
 
 			if (!intersectionCheck(nextRay, tmpT, tmpIP)) return directLight;
+			if (lightIntersectionCheck(nextRay, lightT, lightIP) && lightT - tmpT < 1e-3) return directLight;
 			vec3 wi = nextRay.direction();
 			brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
 			cos = max(dot(IP.n, wi), 0.0f);
-			indirectLight = brdf * cos * pathTracing(tmpIP, nextRay.direction() * -1.0f) / (p * RRThreshold);
+			reflectionLight = brdf * cos * pathTracing(tmpIP, nextRay.direction() * -1.0f) / (p * RRThreshold);
 
 		}
 
 	}
 
-	return directLight + indirectLight;
+	vec3 refrectionLight = vec3(0);
+	if (IP.mat->refrectionRay(wo, IP, nextRay)) {
+
+		if (intersectionCheck(nextRay, tmpT, tmpIP)) refrectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+
+	}
+
+	return directLight + reflectionLight + refrectionLight;
 
 }

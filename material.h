@@ -11,6 +11,7 @@ using namespace glm;
 struct Texture {
 
     unsigned char* image;
+    //std::string image;
     int width;
     int height;
     int channel;
@@ -33,11 +34,12 @@ public:
 
     }
 
-    Material(const char* Name, vec3 Diffuse, Texture* Tex, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
+    Material(const char* Name, vec3 Diffuse, std::string TexturePath, vec3 Specular, vec3 Transmittance, float Shiness, float Ior) {
 
         name = Name;
         diffuse = Diffuse;
-        texture = Tex;
+        texture = NULL;
+        texturePath = TexturePath;
         specular = Specular;
         transmittance = Transmittance;
         shiness = Shiness;
@@ -64,11 +66,6 @@ public:
 
         if (dot(wo, normal) < 0 || dot(wi, normal) < 0) return vec3(0);
         vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
-        vec3 d = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI);
-        float p = pow(max(dot(reflectDirection, wo), 0.0f), shiness);
-        vec3 s = specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
-        //vec3 d = diffuse * (1.0f / PI);
-        //if (texture != NULL) d = sampleTexture((int)uv.x, (int)uv.y)
         vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
 
         return result;
@@ -120,15 +117,44 @@ public:
 
     }
 
+    bool refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
+
+        int rgb = rand() % 3;
+        float p = rand() * 1.0f / RAND_MAX;
+
+        //if (p <= transmittance[rgb]) return false;
+
+        if (transmittance.x >= 1.0f && transmittance.y >= 1.0f && transmittance.z >= 1.0f) return false;
+
+        float ior = IOR;
+        if (dot(wo, IP.n) < 0) ior = 1.0f / IOR, IP.n *= -1.0f;
+        float coso = fabs(dot(wo, IP.n));
+        if (1.0f - (1.0f - coso * coso) < 0) return false;
+        float cosi = sqrt(1.0f - (1.0f - coso * coso) / (ior * ior));
+
+        vec3 wi = normalize(- IP.n * cosi + (IP.n * coso - wo) / ior);
+        r = Ray(IP.p, wi);
+
+        return true;
+
+    }
+
+    vec3 Trans() { return sqrt(transmittance); }
     const char* Name() { return name.c_str(); }
 
     vec3 sampleTexture(float x, float y) {
 
-        if (texture == NULL) return vec3(1.0f);
+        if (texturePath.empty()) return vec3(1.0f);
+        if (texture == NULL) {
+
+            texture = new Texture();
+            texture->image = stbi_load(texturePath.c_str(), &texture->width, &texture->height, &texture->channel, 0);
+
+        }
         while (x < 0) x += 1.0f;
         while (y < 0) y += 1.0f;
-        if (x > 1.0f) x -= 1.0f;
-        if (y > 1.0f) y -= 1.0f;
+        while (x > 1.0f) x -= 1.0f;
+        while (y > 1.0f) y -= 1.0f;
 
         int i = x * texture->width;
         int j = x * texture->height;
@@ -143,6 +169,7 @@ private:
 
     std::string name;
     vec3 diffuse;//-*Kd * : the diffuse reflectance of material, * map_Kd* is the texture file path.
+    std::string texturePath;
     Texture* texture;
     vec3 specular;    //- *Ks * : the specular reflectance of material.
     vec3 transmittance;    //- *Tr * : the transmittance of material.

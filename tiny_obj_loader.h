@@ -2196,7 +2196,7 @@ namespace tinyobj {
 
             // transmittance
             if ((token[0] == 'K' && token[1] == 't' && IS_SPACE((token[2]))) ||
-                (token[0] == 'T' && token[1] == 'f' && IS_SPACE((token[2])))) {
+                (token[0] == 'T' && token[1] == 'r' && IS_SPACE((token[2])))) {
                 token += 2;
                 real_t r, g, b;
                 parseReal3(&r, &g, &b, &token);
@@ -2252,7 +2252,7 @@ namespace tinyobj {
                 has_d = true;
                 continue;
             }
-            if (token[0] == 'T' && token[1] == 'r' && IS_SPACE(token[2])) {
+            if (token[0] == 'T' && token[1] == 'f' && IS_SPACE(token[2])) {
                 token += 2;
                 if (has_d) {
                     // `d` wins. Ignore `Tr` value.

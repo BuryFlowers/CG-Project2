@@ -209,16 +209,18 @@ void LoadOBJ() {
 
 		const char* Name = materials[i].name.c_str();
 		vec3 Diffuse = vec3(materials[i].diffuse[0], materials[i].diffuse[1], materials[i].diffuse[2]);
-		Texture* Tex = NULL;
+		std::string texturePath;
+		if (!materials[i].diffuse_texname.empty()) texturePath = dataPath + sceneName + "/" + materials[i].diffuse_texname;
+		/*Texture* Tex = NULL;
 		if (!materials[i].diffuse_texname.empty()) {
 
 			Tex = new Texture();
 			Tex->image = stbi_load((dataPath + sceneName + "/" + materials[i].diffuse_texname).c_str(), &Tex->width, &Tex->height, &Tex->channel, 0);
 
-		}
+		}*/
 		vec3 Specular = vec3(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2]);
 		vec3 Transmittance = vec3(materials[i].transmittance[0], materials[i].transmittance[1], materials[i].transmittance[2]);
-		materialList[i] = Material(Name, Diffuse, Tex, Specular, Transmittance, materials[i].shininess, materials[i].ior);
+		materialList[i] = Material(Name, Diffuse, texturePath, Specular, Transmittance, materials[i].shininess, materials[i].ior);
 
 		for (int j = 0; j < lightNum; j++)
 			if (strcmp(lights[j].Name().c_str(), materials[i].name.c_str()) == 0) lights[j].SetMat(&materialList[i]);
@@ -249,8 +251,8 @@ void LoadOBJ() {
 				n[k].y = attrib.normals[3 * size_t(index.normal_index) + 1];
 				n[k].z = attrib.normals[3 * size_t(index.normal_index) + 2];
 
-				uv[k].x = attrib.normals[3 * size_t(index.texcoord_index) + 0];
-				uv[k].y = attrib.normals[3 * size_t(index.texcoord_index) + 1];
+				uv[k].x = attrib.texcoords[2 * size_t(index.texcoord_index) + 0];
+				uv[k].y = attrib.texcoords[2 * size_t(index.texcoord_index) + 1];
 
 			}
 
