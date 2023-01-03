@@ -14,7 +14,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "cornell-box";
+std::string sceneName = "staircase";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -30,7 +30,7 @@ Light* lights;
 int lightNum;
 
 const float RRThreshold = 0.8f;
-int SPP = 1000;
+int SPP = 100;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
@@ -193,12 +193,54 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 	vec3 brdf;
 	float cos;
-
+	vec3 refrectionLight = vec3(0);
 	vec3 directLight = vec3(0);
+	vec3 reflectionLight = vec3(0);
+	float tmpT;
+	IntersectionPoint tmpIP;
 	float lightT;
 	IntersectionPoint lightIP;
-	for (int i = 0; i < lightNum; i++) {
-			
+	Ray nextRay;
+
+	if (IP.mat->refrectionRay(wo, IP, nextRay)) {
+
+		float p = rand() * 1.0f / RAND_MAX;
+
+		if (p < 0.5f) {
+
+			vec3 reflectDirection = normalize(2 * dot(wo, IP.n) * IP.n - wo);
+			nextRay = Ray(IP.p, reflectDirection);
+
+			if (intersectionCheck(nextRay, tmpT, tmpIP)) 
+
+				if (lightIntersectionCheck(nextRay, lightT, lightIP) && fabs(lightT - tmpT) < 1e-3) reflectionLight = IP.mat->Trans() * lightIP.mat->GetLightRadiance();
+				else reflectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+
+		}
+
+		else if (intersectionCheck(nextRay, tmpT, tmpIP)) {
+
+			if (lightIntersectionCheck(nextRay, lightT, lightIP) && fabs(lightT - tmpT) < 1e-3) refrectionLight = IP.mat->Trans() * lightIP.mat->GetLightRadiance();
+			else refrectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+
+		}
+
+		/*vec3 reflectDirection = normalize(2 * dot(wo, IP.n) * IP.n - wo);
+		nextRay = Ray(IP.p, reflectDirection);
+
+		if (intersectionCheck(nextRay, tmpT, tmpIP)) {
+
+			reflectionLight = (vec3(1.0f) - IP.mat->Trans()) * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+
+		}*/
+
+	}
+
+	else {
+
+		float directLightNum = 0.0f;
+		for (int i = 0; i < lightNum; i++) {
+
 			Ray lightRay;
 			vec3 lightPosition = lights[i].randomLightRay(IP.p, lightRay);
 			float lightDistance = length(IP.p - lightPosition);
@@ -214,6 +256,7 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 			if (hitLight) {
 
+				directLightNum += 1.0f;
 				vec3 wi = lightRay.direction();
 				brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
 				cos = max(dot(IP.n, wi), 0.0f);
@@ -221,33 +264,26 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 			}
 
-	}
-
-	float tmpT;
-	IntersectionPoint tmpIP;
-	Ray nextRay;
-	vec3 reflectionLight = vec3(0);
-	float RR = rand() * 1.0f / RAND_MAX;
-	if (RR < RRThreshold) {
-
-		float p = 1.0f;
-		if (IP.mat->randomBRDFRay(wo, IP, nextRay, p)) {
-
-			if (!intersectionCheck(nextRay, tmpT, tmpIP)) return directLight;
-			if (lightIntersectionCheck(nextRay, lightT, lightIP) && lightT - tmpT < 1e-3) return directLight;
-			vec3 wi = nextRay.direction();
-			brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
-			cos = max(dot(IP.n, wi), 0.0f);
-			reflectionLight = brdf * cos * pathTracing(tmpIP, nextRay.direction() * -1.0f) / (p * RRThreshold);
-
 		}
 
-	}
+		if (directLightNum != 0.0f) directLight /= directLightNum;
 
-	vec3 refrectionLight = vec3(0);
-	if (IP.mat->refrectionRay(wo, IP, nextRay)) {
+		float RR = rand() * 1.0f / RAND_MAX;
+		if (RR < RRThreshold) {
 
-		if (intersectionCheck(nextRay, tmpT, tmpIP)) refrectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+			float p = 1.0f;
+			if (IP.mat->randomBRDFRay(wo, IP, nextRay, p)) {
+
+				if (!intersectionCheck(nextRay, tmpT, tmpIP)) return directLight;
+				if (lightIntersectionCheck(nextRay, lightT, lightIP) && lightT - tmpT < 1e-3) return directLight;
+				vec3 wi = nextRay.direction();
+				brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
+				cos = max(dot(IP.n, wi), 0.0f);
+				reflectionLight = brdf * cos * pathTracing(tmpIP, nextRay.direction() * -1.0f) / (p * RRThreshold);
+
+			}
+
+		}
 
 	}
 

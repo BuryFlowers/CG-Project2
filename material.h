@@ -66,7 +66,7 @@ public:
 
         if (dot(wo, normal) < 0 || dot(wi, normal) < 0) return vec3(0);
         vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
-        vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
+        vec3 result = /*diffuse * */sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
 
         return result;
 
@@ -139,26 +139,29 @@ public:
 
     }
 
-    vec3 Trans() { return sqrt(transmittance); }
+    vec3 Trans() { return transmittance; }
     const char* Name() { return name.c_str(); }
 
     vec3 sampleTexture(float x, float y) {
 
-        if (texturePath.empty()) return vec3(1.0f);
+        if (texturePath.empty()) return diffuse;
         if (texture == NULL) {
 
             texture = new Texture();
             texture->image = stbi_load(texturePath.c_str(), &texture->width, &texture->height, &texture->channel, 0);
 
         }
-        while (x < 0) x += 1.0f;
-        while (y < 0) y += 1.0f;
-        while (x > 1.0f) x -= 1.0f;
-        while (y > 1.0f) y -= 1.0f;
 
         int i = x * texture->width;
-        int j = x * texture->height;
+        int j = y * texture->height;
+
+        if (i < 0) i %= texture->width, i += texture->width;
+        if (j < 0) j %= texture->height, j += texture->height;
+        if (i >= texture->width) i %= texture->width;
+        if (j >= texture->height) j %= texture->height;
+      
         int index = (i + (texture->height - j - 1) * texture->width) * texture->channel;
+        //int index = (i + j * texture->width) * texture->channel;
         vec3 color = vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
 
         return vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
