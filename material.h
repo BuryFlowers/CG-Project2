@@ -66,7 +66,7 @@ public:
 
         if (dot(wo, normal) < 0 || dot(wi, normal) < 0) return vec3(0);
         vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
-        vec3 result = /*diffuse * */sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
+        vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
 
         return result;
 
@@ -117,34 +117,53 @@ public:
 
     }
 
-    bool refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
+    bool isTransparent() { return IOR > 1.0f; }
 
-        int rgb = rand() % 3;
-        float p = rand() * 1.0f / RAND_MAX;
-
-        //if (p <= transmittance[rgb]) return false;
-
-        if (transmittance.x >= 1.0f && transmittance.y >= 1.0f && transmittance.z >= 1.0f) return false;
+    float refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
 
         float ior = IOR;
         if (dot(wo, IP.n) < 0) ior = 1.0f / IOR, IP.n *= -1.0f;
         float coso = fabs(dot(wo, IP.n));
-        if (1.0f - (1.0f - coso * coso) < 0) return false;
+        if (1.0f - (1.0f - coso * coso) < 0) return 1.0f;
         float cosi = sqrt(1.0f - (1.0f - coso * coso) / (ior * ior));
-
-        vec3 wi = normalize(- IP.n * cosi + (IP.n * coso - wo) / ior);
+        vec3 wi = normalize(-IP.n * cosi + (IP.n * coso - wo) / ior);
         r = Ray(IP.p, wi);
 
-        return true;
+        float RV = (ior * coso - cosi) / (ior * coso + cosi);
+        float RH = (coso - ior * cosi) / (coso + ior * cosi);
+
+        return 0.5f * (RV * RV + RH * RH);
 
     }
+
+    //bool refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
+
+    //    int rgb = rand() % 3;
+    //    float p = rand() * 1.0f / RAND_MAX;
+
+    //    //if (p <= transmittance[rgb]) return false;
+
+    //    if (transmittance.x >= 1.0f && transmittance.y >= 1.0f && transmittance.z >= 1.0f) return false;
+
+    //    float ior = IOR;
+    //    if (dot(wo, IP.n) < 0) ior = 1.0f / IOR, IP.n *= -1.0f;
+    //    float coso = fabs(dot(wo, IP.n));
+    //    if (1.0f - (1.0f - coso * coso) < 0) return false;
+    //    float cosi = sqrt(1.0f - (1.0f - coso * coso) / (ior * ior));
+
+    //    vec3 wi = normalize(- IP.n * cosi + (IP.n * coso - wo) / ior);
+    //    r = Ray(IP.p, wi);
+
+    //    return true;
+
+    //}
 
     vec3 Trans() { return transmittance; }
     const char* Name() { return name.c_str(); }
 
     vec3 sampleTexture(float x, float y) {
 
-        if (texturePath.empty()) return diffuse;
+        if (texturePath.empty()) return vec3(1.0f);
         if (texture == NULL) {
 
             texture = new Texture();
@@ -161,8 +180,16 @@ public:
         if (j >= texture->height) j %= texture->height;
       
         int index = (i + (texture->height - j - 1) * texture->width) * texture->channel;
-        //int index = (i + j * texture->width) * texture->channel;
         vec3 color = vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
+        //printf("%d %.2lf\n", texture->image[index], color.x);
+
+        //if (name == "Wood"/* && i == 312 && j == 883*/) {
+
+        //    printf("i:%d j:%d\n", i, j);
+        //    printf("%d %d %d\n", texture->image[index], texture->image[index + 1], texture->image[index + 2]);
+        //    printf("%.2lf %.2lf %.2lf\n\n", color.x, color.y, color.z);
+
+        //}
 
         return vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
 
