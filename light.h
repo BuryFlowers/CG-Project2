@@ -178,7 +178,7 @@ public:
 
 	}
 
-	virtual vec3 uniformSampling() {
+	virtual vec3 uniformSampling(IntersectionPoint& IP) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -195,16 +195,38 @@ public:
 
 		}
 
-		return m->uniformSampling();
+		return m->uniformSampling(IP);
 
 	}
 
 	vec3 randomLightRay(vec3 startPoint, Ray& r) {
 
-		vec3 o = this->uniformSampling();
+		IntersectionPoint tmpIP;
+		vec3 o = this->uniformSampling(tmpIP);
 		vec3 d = normalize(o - startPoint);
 		r = Ray(startPoint, d);
 		return o;
+
+	}
+
+	bool randomLightTracingRay(vec3 wo, IntersectionPoint IP, Ray& r, float& p) {
+
+		if (dot(wo, IP.n) < 0) return false;
+		float u1 = rand() * 1.0f / RAND_MAX;
+		while (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
+		float u2 = rand() * 1.0f / RAND_MAX;
+		while (u2 == 0.0f || u2 == 1.0f) u2 = rand() * 1.0f / RAND_MAX;
+
+		vec3 y = IP.n;
+		vec3 z = normalize(cross(y, wo));
+		vec3 x = normalize(cross(y, z));
+
+		vec2 w = vec2(acosf(sqrt(u1)), 2 * PI * u2);
+		vec3 wi = x * cosf(w.y) * sinf(w.x) + y * cosf(w.x) + z * sinf(w.y) * sinf(w.x);
+
+		r = Ray(IP.p, wi);
+		p = cosf(w.x) / PI;
+		return true;
 
 	}
 

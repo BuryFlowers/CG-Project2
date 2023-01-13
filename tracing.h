@@ -3,6 +3,7 @@
 #define TRACING
 #include "glm/glm.hpp"
 #include "stb_image.h"
+#include "camera.h"
 #include <string.h>
 
 using namespace glm;
@@ -20,22 +21,19 @@ struct IntersectionPoint {
 
 struct PathPoint {
 
-    PathPoint(IntersectionPoint IP, vec3 Wi, float T, vec3 F, float P) {
+    PathPoint(IntersectionPoint IP, float P) {
 
         ip = IP;
-        wi = Wi;
-        t = T;
-        f = F;
         p = P;
   
     }
      
     IntersectionPoint ip;
-    vec3 wi;
-    float t;
-    vec3 f;
     float p;
 
 };
+
+enum IntersectionType { HITLIGHT, HITOBJECT, NOHIT };
+
 
 #endif // !TRACING

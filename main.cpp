@@ -7,38 +7,65 @@
 #include "mesh.h"
 #include "triangle.h"
 #include "light.h"
+#include "device_triangle.cuh"
 #include "omp.h"
 #include <string>
 #include <time.h>
 
+# define	TIMING_BEGIN \
+	{double tmp_timing_start = omp_get_wtime();
+
+# define	TIMING_END(message) \
+	{double tmp_timing_finish = omp_get_wtime();\
+	double  tmp_timing_duration = tmp_timing_finish - tmp_timing_start;\
+	printf("%s: %2.5f ms           \n\n", (message), tmp_timing_duration * 1000);}}
+
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "staircase";
+std::string sceneName = "veach-mis";
 
 int materialNum = 0;
 Material* materialList = NULL;
 int triangleObjectNum;
+int triangleNum;
 TriangleObject* triangleObjects;
-void LoadOBJ();
+d_triangle* d_triangles;
+d_triangle* h_triangles;
+int* d_id;
+float* d_T;
+d_vec3* d_weight;
+int* d_lock;
+Material* h_mat;
+int* h_id;
+float* h_T;
+d_vec3* h_weight;
+int* h_lock;
 
-tinyxml2::XMLDocument xmlDoc;
-Camera* LoadCamera();
-Camera* cam;
-Light* LoadLight();
 Light* lights;
 int lightNum;
+float lightA = 0.0f;
+tinyxml2::XMLDocument xmlDoc;
+Camera* cam;
+Camera* LoadCamera();
+Light* LoadLight();
+void LoadOBJ();
 
 const float RRThreshold = 0.8f;
-int SPP = 1;
+int SPP = 50;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
-const float gamma = 2.0f;
+const float gamma = 2.2f;
 char* image;
+
 bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP);
 bool lightIntersectionCheck(Ray r, float& t, IntersectionPoint& IP);
+IntersectionType intersectionTypeCheck(Ray r, float& t, IntersectionPoint& IP);
+extern bool CUDAIntersectionCheck(Ray r, float& t, IntersectionPoint& IP);
 vec3 pathTracing(IntersectionPoint IP, vec3 wo);
+vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo);
+vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath);
 
 float ACESToneMapping(float color, float adapted_lum);
 float ACESFilm(float x);
@@ -51,12 +78,17 @@ int main() {
 	lights = LoadLight();
 	LoadOBJ();
 
+	/*Ray r = cam->pixelRay(cam->Width() / 2, cam->Height() / 2);
+	float t;
+	IntersectionPoint IP;
+	return CUDAIntersectionCheck(r, t, IP);*/
+
 	result = new float[cam->Width() * cam->Height() * 3];
 	image = new char[cam->Width() * cam->Height() * 3];
 
-	#pragma omp parallel
+	#pragma omp parallel for
 	for (int i = 0; i < cam->Width(); i++) {
-		for (int j = 0; j < cam->Height(); j++){
+		for (int j = 0; j < cam->Height(); j++) {
 
 			int index = (i * cam->Height() + j) * 3;
 			float completePath = 0.0f;
@@ -75,9 +107,16 @@ int main() {
 				}
 
 				vec3 color = vec3(0);
-				float t, lightT;
-				IntersectionPoint IP, lightIP;
-				if (!intersectionCheck(r, t, IP)) {
+				float t;
+				IntersectionPoint IP;
+
+				IntersectionType IT = intersectionTypeCheck(r, t, IP);
+
+				if (IT == HITOBJECT) color = pathTracing(IP, r.direction() * -1.0f);
+				else if (IT == HITLIGHT) color = IP.mat->GetLightRadiance();
+				else color = vec3(0);
+
+				/*if (!intersectionCheck(r, t, IP)) {
 
 					if (lightIntersectionCheck(r, lightT, lightIP)) color = lightIP.mat->GetLightRadiance();
 					else color = vec3(0);
@@ -88,7 +127,7 @@ int main() {
 					if (lightIntersectionCheck(r, lightT, lightIP) && lightT - t < 1e-3) color = lightIP.mat->GetLightRadiance();
 					else color = pathTracing(IP, r.direction() * -1.0f);
 
-				}
+				}*/
 
 				result[index] += color.x;
 				result[index + 1] += color.y;
@@ -105,7 +144,7 @@ int main() {
 
 		}
 
-		if (i % 16 == 0) printf("%d%% is finished.\n", i * 100 / cam->Width());
+		printf("%d%% is finished.\r", i * 100 / cam->Width());
 
 	}
 
@@ -145,6 +184,7 @@ float ACESFilm(float x) {
 
 bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
+	/*double tmp_timing_start = omp_get_wtime();*/
 	t = 1e10;
 	bool flag = false;
 	for (int l = 0; l < triangleObjectNum; l++) {
@@ -160,7 +200,9 @@ bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 		}
 
 	}
-
+	/*double tmp_timing_finish = omp_get_wtime(); 
+	double tmp_timing_duration = tmp_timing_finish - tmp_timing_start; 
+	printf("CPU Time to compute : %.5f ns\n", tmp_timing_duration * 1e6);*/
 	return flag;
 
 }
@@ -187,52 +229,71 @@ bool lightIntersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 
 }
 
+IntersectionType intersectionTypeCheck(Ray r, float& t, IntersectionPoint& IP) {
 
+	IntersectionPoint lightIP;
+	float lightT;
+
+	if (intersectionCheck(r, t, IP)) {
+
+		if (!lightIntersectionCheck(r, lightT, lightIP)) return HITOBJECT;
+
+		else if (lightT - t < 1e-4) {
+
+			t = lightT;
+			IP = lightIP;
+			return HITLIGHT;
+
+		}
+		else return HITOBJECT;
+
+	}
+
+	else if (lightIntersectionCheck(r, lightT, lightIP)) {
+
+		t = lightT;
+		IP = lightIP;
+		return HITLIGHT;
+
+	}
+	else return NOHIT;
+
+}
 
 vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 	vec3 brdf;
 	float cos;
-	vec3 refrectionLight = vec3(0);
+	vec3 refractionLight = vec3(0);
 	vec3 directLight = vec3(0);
 	vec3 reflectionLight = vec3(0);
 	float tmpT;
 	IntersectionPoint tmpIP;
-	float lightT;
-	IntersectionPoint lightIP;
 	Ray nextRay;
 
 	if (IP.mat->isTransparent()) {
 
 		float p = rand() * 1.0f / RAND_MAX;
-		float refrectP = IP.mat->refrectionRay(wo, IP, nextRay);
+		float refrectP = IP.mat->refractionRay(wo, IP, nextRay);
 
 		if (p < refrectP) {
 
 			vec3 reflectDirection = normalize(2 * dot(wo, IP.n) * IP.n - wo);
 			nextRay = Ray(IP.p, reflectDirection);
 
-			if (lightIntersectionCheck(nextRay, lightT, lightIP)) {
+			IntersectionType IT = intersectionTypeCheck(nextRay, tmpT, tmpIP);
 
-				if (!intersectionCheck(nextRay, tmpT, tmpIP) || lightT - tmpT < 1e-3) reflectionLight = IP.mat->Trans() * lightIP.mat->GetLightRadiance();
-				else reflectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
-
-			}
-
-			else if (intersectionCheck(nextRay, tmpT, tmpIP)) reflectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+			if (IT == HITLIGHT) IP.mat->Trans()* tmpIP.mat->GetLightRadiance();
+			else if (IT == HITOBJECT) reflectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
 
 		}
 
 		else {
 
-			if (lightIntersectionCheck(nextRay, lightT, lightIP)) {
+			IntersectionType IT = intersectionTypeCheck(nextRay, tmpT, tmpIP);
 
-				if (!intersectionCheck(nextRay, tmpT, tmpIP) || lightT - tmpT < 1e-3) refrectionLight = IP.mat->Trans() * lightIP.mat->GetLightRadiance();
-				else refrectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
-
-			}
-
-			else if (intersectionCheck(nextRay, tmpT, tmpIP)) refrectionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
+			if (IT == HITLIGHT) refractionLight = IP.mat->Trans() * tmpIP.mat->GetLightRadiance();
+			else if (IT == HITOBJECT) refractionLight = IP.mat->Trans() * pathTracing(tmpIP, nextRay.direction() * -1.0f);
 
 		}
 
@@ -245,22 +306,15 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 			Ray lightRay;
 			vec3 lightPosition = lights[i].randomLightRay(IP.p, lightRay);
 			float lightDistance = length(IP.p - lightPosition);
-			bool hitLight = false;
-			if (lightIntersectionCheck(lightRay, lightT, lightIP) && fabs(lightT - lightDistance) < 1e-3) {
 
-				float tmpT;
-				IntersectionPoint tmpIP;
-				if (!intersectionCheck(lightRay, tmpT, tmpIP)) hitLight = true;
-				else if (lightDistance - tmpT < 1e-3) hitLight = true;
+			IntersectionType IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
 
-			}
-
-			if (hitLight) {
+			if (IT == HITLIGHT) {
 
 				vec3 wi = lightRay.direction();
 				brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
 				cos = max(dot(IP.n, wi), 0.0f);
-				directLight += brdf * cos * lights[i].Radiance() * max(dot(lightIP.n, wi * -1.0f), 0.0f) * lights[i].area() / (lightT * lightT);
+				directLight += brdf * cos * lights[i].Radiance() * max(dot(tmpIP.n, wi * -1.0f), 0.0f) * lights[i].area() / (tmpT * tmpT);
 
 			}
 
@@ -272,8 +326,8 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 			float p = 1.0f;
 			if (IP.mat->randomBRDFRay(wo, IP, nextRay, p)) {
 
-				if (!intersectionCheck(nextRay, tmpT, tmpIP)) return directLight;
-				if (lightIntersectionCheck(nextRay, lightT, lightIP) && lightT - tmpT < 1e-3) return directLight;
+				IntersectionType IT = intersectionTypeCheck(nextRay, tmpT, tmpIP);
+				if (IT == HITLIGHT || IT == NOHIT) return directLight;
 				vec3 wi = nextRay.direction();
 				brdf = IP.mat->phongModelBRDF(wi, wo, IP.n, IP.uv);
 				cos = max(dot(IP.n, wi), 0.0f);
@@ -285,6 +339,79 @@ vec3 pathTracing(IntersectionPoint IP, vec3 wo) {
 
 	}
 
-	return directLight + reflectionLight + refrectionLight;
+	return directLight + reflectionLight + refractionLight;
+
+}
+
+int randomLight() {
+
+	float p = rand() * 1.0f / RAND_MAX * lightA;
+	float a = 0.0f;
+	for (int i = 0; i < lightNum; i++) {
+
+		a += lights[i].area();
+		if (a >= p) return i;
+
+	}
+
+}
+
+vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath) {
+
+	
+	
+}
+
+vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
+
+	float RR = 0.0f;
+	std::vector<PathPoint> cameraPath;
+	cameraPath.clear();
+	cameraPath.push_back(PathPoint(IP, 1.0f));
+	Ray r;
+	float t;
+	float p;
+	float tmpT;
+	IntersectionPoint tmpIP = IP;
+	IntersectionType IT;
+	while (RR < RRThreshold) {
+
+		if (!tmpIP.mat->randomBRDFRay(wo, tmpIP, r, p)) break;
+		IT = intersectionTypeCheck(r, t, tmpIP);
+		if (IT == HITLIGHT || IT == NOHIT) break;
+		cameraPath.push_back(PathPoint(IP, p));
+		RR = rand() * 1.0f / RAND_MAX;
+
+	}
+
+	Light* light = &lights[randomLight()];
+	Ray lightRay;
+	std::vector<PathPoint> lightPath;
+	lightPath.clear();
+
+	light->uniformSampling(tmpIP);
+	lightPath.push_back(PathPoint(tmpIP, 1.0f / lightA));
+	light->randomLightTracingRay(tmpIP.n, tmpIP, lightRay, p);
+	IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
+
+	if (IT == HITOBJECT) {
+
+		lightPath.push_back(PathPoint(IP, p));
+		vec3 wi = lightRay.direction() * -1.0f;
+		vec3 wo;
+		RR = rand() * 1.0f / RAND_MAX;
+		while (RR < RRThreshold) {
+
+			tmpIP.mat->randomBRDFRay(wi, tmpIP, lightRay, p);
+			IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
+			if (IT == HITLIGHT || IT == NOHIT) break;
+			lightPath.push_back(PathPoint(IP, p));
+			RR = rand() * 1.0f / RAND_MAX;
+
+		}
+
+	}
+
+	return MISCombine(cameraPath, wo, lightPath);
 
 }

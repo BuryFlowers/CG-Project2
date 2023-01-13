@@ -5,6 +5,8 @@
 #include "mesh.h"
 #include "light.h"
 #include "triangle.h"
+#include "device_vector.cuh"
+#include "device_triangle.cuh"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
@@ -18,6 +20,7 @@ extern std::string sceneName;
 extern int materialNum;
 extern Material* materialList;
 extern int triangleObjectNum;
+extern int triangleNum;
 extern TriangleObject* triangleObjects;
 
 extern tinyxml2::XMLDocument xmlDoc;
@@ -115,6 +118,7 @@ Camera* LoadCamera() {
 
 extern int lightNum;
 extern Light* lights;
+extern float lightA;
 Light* LoadLight() {
 
 	std::string xmlPath = dataPath + sceneName + "/" + sceneName + ".xml";
@@ -180,6 +184,17 @@ Light* LoadLight() {
 
 }
 
+extern d_triangle* d_triangles;
+extern d_triangle* h_triangles;
+extern int* d_id;
+extern float* d_T;
+extern d_vec3* d_weight;
+extern int* d_lock;
+extern Material* h_mat;
+extern int* h_id;
+extern float* h_T;
+extern d_vec3* h_weight;
+extern int* h_lock;
 void LoadOBJ() {
 
 	std::string objPath = dataPath + sceneName + "/" + sceneName + ".obj";
@@ -228,7 +243,7 @@ void LoadOBJ() {
 	}
 
 	
-
+	triangleNum = 0;
 	triangleObjectNum = shapes.size();
 	triangleObjects = new TriangleObject[triangleObjectNum]();
 
@@ -246,7 +261,7 @@ void LoadOBJ() {
 				v[k].x = attrib.vertices[3 * size_t(index.vertex_index) + 0];
 				v[k].y = attrib.vertices[3 * size_t(index.vertex_index) + 1];
 				v[k].z = attrib.vertices[3 * size_t(index.vertex_index) + 2];
-
+				
 				n[k].x = attrib.normals[3 * size_t(index.normal_index) + 0];
 				n[k].y = attrib.normals[3 * size_t(index.normal_index) + 1];
 				n[k].z = attrib.normals[3 * size_t(index.normal_index) + 2];
@@ -255,7 +270,7 @@ void LoadOBJ() {
 				uv[k].y = attrib.texcoords[2 * size_t(index.texcoord_index) + 1];
 
 			}
-
+			
 			Triangle* tmpTriangle = new Triangle(v, n, uv, &materialList[shapes[i].mesh.material_ids[j]]);
 			bool isLight = false;
 
@@ -269,7 +284,7 @@ void LoadOBJ() {
 
 				}
 
-			if (!isLight) triangleObjects[i].addTriangle(tmpTriangle);
+			if (!isLight) triangleObjects[i].addTriangle(tmpTriangle), triangleNum++;
 
 		}
 
@@ -277,7 +292,96 @@ void LoadOBJ() {
 
 	}
 
+	h_triangles = new d_triangle[triangleNum]();
+	h_id = new int;
+	*h_id = -1;
+	h_T = new float();
+	*h_T = 1e10;
+	h_weight = new d_vec3();
+	h_mat = new Material[triangleNum]();
+	h_lock = new int;
+	*h_lock = 1;
+
+	if (cudaMalloc((void**)&d_lock, sizeof(int)) != cudaSuccess) {
+
+		printf("[Error]Failed to malloc GPU memory for locker\n");
+		exit(-1);
+
+	}
+
+	if (cudaMalloc((void**)&d_triangles, triangleNum * sizeof(d_triangle)) != cudaSuccess) {
+
+		printf("[Error]Failed to malloc GPU memory for triangles\n");
+		exit(-1);
+
+	}
+
+	if (cudaMalloc((void**)&d_id, sizeof(int)) != cudaSuccess) {
+
+		printf("[Error]Failed to malloc GPU memory for flags\n");
+		exit(-1);
+
+	}
+
+	if (cudaMalloc((void**)&d_T, sizeof(float)) != cudaSuccess) {
+
+		printf("[Error]Failed to malloc GPU memory for Ts\n");
+		exit(-1);
+
+	}
+
+	if (cudaMalloc((void**)&d_weight, sizeof(d_vec3)) != cudaSuccess) {
+
+		printf("[Error]Failed to malloc GPU memory for weights\n");
+		exit(-1);
+
+	}
+
+	triangleNum = 0;
+	offset = 0;
+	for (int i = 0; i < shapes.size(); i++) {
+
+		for (int j = 0; j < shapes[i].mesh.num_face_vertices.size(); j++) {
+
+			bool isLight = false;
+
+			for (int k = 0; k < lightNum; k++)
+				if (lights[k].Mat() == &materialList[shapes[i].mesh.material_ids[j]]) {
+
+					isLight = true;
+					break;
+
+				}
+
+			if (isLight) continue;
+
+			for (int k = 0; k < 3; k++) {
+
+				tinyobj::index_t index = shapes[i].mesh.indices[j * 3 + k];
+
+				h_triangles[triangleNum].v[k] = d_vec3(attrib.vertices[3 * size_t(index.vertex_index) + 0], attrib.vertices[3 * size_t(index.vertex_index) + 1], attrib.vertices[3 * size_t(index.vertex_index) + 2]);
+				h_triangles[triangleNum].n[k] = d_vec3(attrib.normals[3 * size_t(index.normal_index) + 0], attrib.normals[3 * size_t(index.normal_index) + 1], attrib.normals[3 * size_t(index.normal_index) + 2]);
+				h_triangles[triangleNum].uv[k] = d_vec2(attrib.texcoords[2 * size_t(index.texcoord_index) + 0], attrib.texcoords[2 * size_t(index.texcoord_index) + 1]);
+
+
+			}
+
+			h_mat[triangleNum] = materialList[shapes[i].mesh.material_ids[j]];
+			triangleNum++;
+
+		}
+
+	}
+
+	if (cudaMemcpy(d_triangles, h_triangles, triangleNum * sizeof(d_triangle), cudaMemcpyHostToDevice) != cudaSuccess) {
+
+		printf("[Error]Failed to copy triangles to GPU\n");
+		exit(-1);
+
+	}
+
 	for (int i = 0; i < lightNum; i++) lights[i].buildBVH();
+	for (int i = 0; i < lightNum; i++) lightA += lights[i].area();
 
 	printf("[Success]Scene has been loaded!\n");
 

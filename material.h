@@ -85,8 +85,8 @@ public:
         vec3 z = normalize(cross(y, wo));
         vec3 x = normalize(cross(y, z));
 
-        //float sampleDiffuse = rand() * 1.0f / RAND_MAX;
-        float sampleDiffuse = 0.0f;
+        float sampleDiffuse = rand() * 1.0f / RAND_MAX;
+        //float sampleDiffuse = 0.0f;
         vec3 kd = diffuse * sampleTexture(IP.uv.x, IP.uv.y);
         vec3 ks = specular;
         if (sampleDiffuse <= kd[rgb]) {
@@ -107,8 +107,9 @@ public:
             vec3 wi = x * cosf(w.y) * sinf(w.x) + y * cosf(w.x) + z * sinf(w.y) * sinf(w.x);
 
             r = Ray(IP.p, wi);
-            p = pow(max(dot(reflectDirection, wi), 0.0f), shiness) * (shiness + 1) / (2.0f * PI);
-            if (p == 0.0f) return this->randomBRDFRay(wo, IP, r, p);
+            double dp = pow(max((double)dot(reflectDirection, wi), 0.0), shiness) * (shiness + 1) / (2.0 * PI);
+            p = (float)dp;
+            if (p < 1e-2) return this->randomBRDFRay(wo, IP, r, p);
             return true;
 
         }
@@ -117,9 +118,34 @@ public:
 
     }
 
+    float getDiffusePossibility(vec3 normal, vec3 wi, vec3 wo) {
+
+        vec3 y = normal;
+        vec3 z = normalize(cross(y, wo));
+        vec3 x = normalize(cross(y, z));
+        float costheta = dot(wi, normal);
+        if (costheta < 0) return 0;
+        return costheta / PI;
+
+    }
+
+    float getSpecularPossibility(vec3 normal, vec3 wi, vec3 wo) {
+
+        vec3 y = normal;
+        vec3 z = normalize(cross(y, wo));
+        vec3 x = normalize(cross(y, z));
+        float costheta = dot(wi, normal);
+        if (costheta < 0) return 0;
+        vec3 reflectDirection = normalize(2 * dot(wo, y) * y - wo);
+        float cosalpha = dot(reflectDirection, wi);
+        if (cosalpha < 0) return 0;
+        return pow(cosalpha, shiness) * (shiness + 1) / (2.0f * PI);
+
+    }
+
     bool isTransparent() { return IOR > 1.0f; }
 
-    float refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
+    float refractionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
 
         float ior = IOR;
         if (dot(wo, IP.n) < 0) ior = 1.0f / IOR, IP.n *= -1.0f;

@@ -54,6 +54,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -109,6 +110,8 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <CudaCompile />
+    <CudaCompile />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -125,9 +128,14 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <CudaCompile />
+    <CudaCompile />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="book.h" />
     <ClInclude Include="camera.h" />
+    <ClInclude Include="device_triangle.cuh" />
+    <ClInclude Include="device_vector.cuh" />
     <ClInclude Include="light.h" />
     <ClInclude Include="material.h" />
     <ClInclude Include="mesh.h" />
@@ -145,7 +153,11 @@
     <ClCompile Include="stb_image.cpp" />
     <ClCompile Include="tinyxml2.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="kernel.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.targets" />
   </ImportGroup>
 </Project>

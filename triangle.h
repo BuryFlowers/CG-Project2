@@ -58,20 +58,15 @@ public:
 		if (fabs(dot(r.direction(), planeNormal)) < 1e-5) return false;
 		if (A == 0) return false;
 
-		float tmp1 = dot(r.direction(), planeNormal);
-		float tmp2 = (v0N - dot(r.origin(), planeNormal));
 		t = (v0N - dot(r.origin(), planeNormal)) / dot(r.direction(), planeNormal);
+		//printf("A:%.2lf N:%.2lf %.2lf %.2lf T:%.2lf\n", A, planeNormal.x, planeNormal.y, planeNormal.z, t);
 		if (t < 1e-3) return false;
 
 		vec3 p = r.pointAt(t);
-
-		float tmp = dot(planeNormal, p - v[0]);
-
 		vec3 t1 = cross(v[0] - p, v[1] - p);
 		vec3 t2 = cross(v[1] - p, v[2] - p);
-		vec3 t3 = cross(v[2] - p, v[0] - p);
-
 		if (dot(t1, t2) < 0) return false;
+		vec3 t3 = cross(v[2] - p, v[0] - p);
 		if (dot(t1, t3) < 0) return false;
 		if (dot(t2, t3) < 0) return false;
 
@@ -90,10 +85,13 @@ public:
 
 	}
 
-	virtual vec3 uniformSampling() {
+	virtual vec3 uniformSampling(IntersectionPoint& IP) {
 
 		float u1 = rand() * 1.0f / RAND_MAX;
 		float u2 = rand() * 1.0f / RAND_MAX;
+		IP.p = (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
+		IP.n = (1 - u1) * sqrt(u2) * n[0] + u1 * sqrt(u2) * n[1] + (1 - sqrt(u2)) * n[2];
+		IP.uv = (1 - u1) * sqrt(u2) * uv[0] + u1 * sqrt(u2) * uv[1] + (1 - sqrt(u2)) * uv[2];
 
 		return (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
 
@@ -227,7 +225,7 @@ public:
 
 	}
 
-	virtual vec3 uniformSampling() {
+	virtual vec3 uniformSampling(IntersectionPoint& IP) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -244,7 +242,7 @@ public:
 
 		}
 
-		return t->uniformSampling();
+		return t->uniformSampling(IP);
 
 	}
 
