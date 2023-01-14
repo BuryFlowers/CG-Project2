@@ -89,6 +89,7 @@ public:
 
 		float u1 = rand() * 1.0f / RAND_MAX;
 		float u2 = rand() * 1.0f / RAND_MAX;
+		IP.mat = this->mat;
 		IP.p = (1 - u1) * sqrt(u2) * v[0] + u1 * sqrt(u2) * v[1] + (1 - sqrt(u2)) * v[2];
 		IP.n = (1 - u1) * sqrt(u2) * n[0] + u1 * sqrt(u2) * n[1] + (1 - sqrt(u2)) * n[2];
 		IP.uv = (1 - u1) * sqrt(u2) * uv[0] + u1 * sqrt(u2) * uv[1] + (1 - sqrt(u2)) * uv[2];

@@ -209,9 +209,12 @@ public:
 
 	}
 
-	bool randomLightTracingRay(vec3 wo, IntersectionPoint IP, Ray& r, float& p) {
+	bool randomLightTracingRay(IntersectionPoint IP, Ray& r, float& p) {
 
-		if (dot(wo, IP.n) < 0) return false;
+		vec3 wo = vec3(1.0f, 0, 0);
+		if (dot(wo, IP.n) < 0) wo = vec3(-1.0f, 0, 0);
+		if (dot(wo, IP.n) >= 0.999) wo = vec3(0, 1.0f, 0);
+		if (dot(wo, IP.n) < 0) wo = vec3(0, -1.0f, 0);
 		float u1 = rand() * 1.0f / RAND_MAX;
 		while (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
 		float u2 = rand() * 1.0f / RAND_MAX;

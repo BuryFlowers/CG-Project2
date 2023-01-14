@@ -109,7 +109,7 @@ public:
             r = Ray(IP.p, wi);
             double dp = pow(max((double)dot(reflectDirection, wi), 0.0), shiness) * (shiness + 1) / (2.0 * PI);
             p = (float)dp;
-            if (p < 1e-2) return this->randomBRDFRay(wo, IP, r, p);
+            //if (p < 1e-2) return this->randomBRDFRay(wo, IP, r, p);
             return true;
 
         }

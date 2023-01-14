@@ -23,7 +23,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "veach-mis";
+std::string sceneName = "cornell-box";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -52,7 +52,7 @@ Light* LoadLight();
 void LoadOBJ();
 
 const float RRThreshold = 0.8f;
-int SPP = 50;
+int SPP = 32;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
@@ -112,7 +112,7 @@ int main() {
 
 				IntersectionType IT = intersectionTypeCheck(r, t, IP);
 
-				if (IT == HITOBJECT) color = pathTracing(IP, r.direction() * -1.0f);
+				if (IT == HITOBJECT) color = bidirectionalPathTracing(IP, r.direction() * -1.0f);
 				else if (IT == HITLIGHT) color = IP.mat->GetLightRadiance();
 				else color = vec3(0);
 
@@ -154,7 +154,7 @@ int main() {
 				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = pow(result[(j + i * cam->Height()) * 3 + k], 1.0f / gamma) * 255.0f;
 
 
-	stbi_write_jpg((sceneName + "_" + std::to_string(cam->Width()) + "X" + std::to_string(cam->Height()) + "_" + std::to_string(SPP) + "SPP" + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
+	stbi_write_jpg((sceneName + "_" + "BDPT" + "_" + std::to_string(cam->Width()) + "X" + std::to_string(cam->Height()) + "_" + std::to_string(SPP) + "SPP" + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
 
 }
 
@@ -358,7 +358,69 @@ int randomLight() {
 
 vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath) {
 
+	float sumP = 0.0f;
+	bool flag = false;
+	vec3 MISResult = vec3(0);
+	int* paths = new int[cameraPath.size() + lightPath.size()]();
+	vec3* pathResult = new vec3[cameraPath.size() + lightPath.size()]();
 	
+	for (int i = 0; i < cameraPath.size(); i++) {
+
+		for (int j = 0; j < lightPath.size(); j++) {
+
+			bool visible = false;
+			Ray r = Ray(cameraPath[i].ip.p, lightPath[j].ip.p - cameraPath[i].ip.p);
+			float tmpT;
+			IntersectionPoint tmpIP;
+			IntersectionType IT = intersectionTypeCheck(r, tmpT, tmpIP);
+			if (IT == HITOBJECT && j != 0 && fabs(tmpT - length(lightPath[j].ip.p - cameraPath[i].ip.p)) < 1e-3 && tmpIP.mat == lightPath[j].ip.mat) visible = true;
+			else if (IT == HITLIGHT && j == 0 && fabs(tmpT - length(lightPath[j].ip.p - cameraPath[i].ip.p)) < 1e-3 && tmpIP.mat == lightPath[j].ip.mat) visible = true;
+
+			if (visible) {
+
+				flag = true;
+				if(paths[i + j]++ == 0) pathResult[i + j] = vec3(0);
+				sumP += cameraPath[i].p * lightPath[j].p;
+				vec3 currentResult = lightPath[0].ip.mat->GetLightRadiance();
+
+				for (int k = 1; k <= j; k++) {
+
+					vec3 wi = lightPath[k - 1].ip.p - lightPath[k].ip.p;
+					float len = length(wi) * length(wi);
+					wi = normalize(wi);
+					vec3 wo = k == j ? normalize(cameraPath[i].ip.p - lightPath[j].ip.p) : normalize(lightPath[k + 1].ip.p - lightPath[k].ip.p);
+					vec3 BRDF = lightPath[k].ip.mat->phongModelBRDF(wi, wo, lightPath[k].ip.n, lightPath[k].ip.uv);
+					float G = max(dot(lightPath[k - 1].ip.n, -wi), 0.0f) * max(dot(lightPath[k].ip.n, wi), 0.0f) / len;
+					float COS = max(dot(lightPath[k].ip.n, wi), 0.0f);
+					currentResult = currentResult * COS * BRDF;
+
+				}
+
+				for (int k = i; k >= 0; k--) {
+
+					vec3 wi = k == i? lightPath[j].ip.p - cameraPath[k].ip.p : cameraPath[k + 1].ip.p - cameraPath[k].ip.p;
+					float len = length(wi) * length(wi);
+					wi = normalize(wi);
+					vec3 wo = k == 0 ? cameraDirection : normalize(cameraPath[k - 1].ip.p - cameraPath[k].ip.p);
+					vec3 BRDF = cameraPath[k].ip.mat->phongModelBRDF(wi, wo, cameraPath[k].ip.n, cameraPath[k].ip.uv);
+					float G = max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * max(dot(cameraPath[k].ip.n, wi), 0.0f) / len;
+					float COS = max(dot(cameraPath[k].ip.n, wi), 0.0f);
+					currentResult = currentResult * COS * BRDF;
+
+				}
+
+				pathResult[i + j] += currentResult / (cameraPath[i].p * lightPath[j].p);
+
+			}
+
+		}
+
+	}
+
+	if (!flag) return vec3(0);
+	for (int i = 0; i < cameraPath.size() + lightPath.size(); i++)
+		if (paths[i] != 0) MISResult += pathResult[i] / (1.0f * paths[i]);
+	return MISResult;
 	
 }
 
@@ -377,9 +439,11 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 	while (RR < RRThreshold) {
 
 		if (!tmpIP.mat->randomBRDFRay(wo, tmpIP, r, p)) break;
-		IT = intersectionTypeCheck(r, t, tmpIP);
+		//p *= max(dot(r.direction(), tmpIP.n), 0.0f);
+		IT = intersectionTypeCheck(r, tmpT, tmpIP);
 		if (IT == HITLIGHT || IT == NOHIT) break;
-		cameraPath.push_back(PathPoint(IP, p));
+		//p /= tmpT * tmpT;
+		cameraPath.push_back(PathPoint(tmpIP, p * RRThreshold * cameraPath.back().p));
 		RR = rand() * 1.0f / RAND_MAX;
 
 	}
@@ -391,21 +455,26 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 
 	light->uniformSampling(tmpIP);
 	lightPath.push_back(PathPoint(tmpIP, 1.0f / lightA));
-	light->randomLightTracingRay(tmpIP.n, tmpIP, lightRay, p);
+	light->randomLightTracingRay(tmpIP, lightRay, p);
+	//p *= max(dot(lightRay.direction(), tmpIP.n), 0.0f);
+	lightPath.back().p /= max(dot(lightRay.direction(), tmpIP.n), 0.0f);
 	IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
+	lightPath.back().p *= tmpT * tmpT;
 
 	if (IT == HITOBJECT) {
 
-		lightPath.push_back(PathPoint(IP, p));
+		lightPath.push_back(PathPoint(tmpIP, p * lightPath.back().p));
 		vec3 wi = lightRay.direction() * -1.0f;
 		vec3 wo;
 		RR = rand() * 1.0f / RAND_MAX;
 		while (RR < RRThreshold) {
 
-			tmpIP.mat->randomBRDFRay(wi, tmpIP, lightRay, p);
+			if (!tmpIP.mat->randomBRDFRay(wi, tmpIP, lightRay, p)) break;
+			//p *= max(dot(lightRay.direction(), tmpIP.n), 0.0f);
 			IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
 			if (IT == HITLIGHT || IT == NOHIT) break;
-			lightPath.push_back(PathPoint(IP, p));
+			//p /= tmpT * tmpT;
+			lightPath.push_back(PathPoint(tmpIP, p * RRThreshold * lightPath.back().p));
 			RR = rand() * 1.0f / RAND_MAX;
 
 		}
