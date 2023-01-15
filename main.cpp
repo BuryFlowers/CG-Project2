@@ -23,7 +23,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "cornell-box";
+std::string sceneName = "veach-mis";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -52,7 +52,7 @@ Light* LoadLight();
 void LoadOBJ();
 
 const float RRThreshold = 0.8f;
-int SPP = 32;
+int SPP = 256;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
@@ -377,10 +377,11 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 			if (IT == HITOBJECT && j != 0 && fabs(tmpT - length(lightPath[j].ip.p - cameraPath[i].ip.p)) < 1e-3 && tmpIP.mat == lightPath[j].ip.mat) visible = true;
 			else if (IT == HITLIGHT && j == 0 && fabs(tmpT - length(lightPath[j].ip.p - cameraPath[i].ip.p)) < 1e-3 && tmpIP.mat == lightPath[j].ip.mat) visible = true;
 
+			if (paths[i + j]++ == 0) pathResult[i + j] = vec3(0);
+
 			if (visible) {
 
 				flag = true;
-				if(paths[i + j]++ == 0) pathResult[i + j] = vec3(0);
 				sumP += cameraPath[i].p * lightPath[j].p;
 				vec3 currentResult = lightPath[0].ip.mat->GetLightRadiance();
 
@@ -392,7 +393,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 					vec3 wo = k == j ? normalize(cameraPath[i].ip.p - lightPath[j].ip.p) : normalize(lightPath[k + 1].ip.p - lightPath[k].ip.p);
 					vec3 BRDF = lightPath[k].ip.mat->phongModelBRDF(wi, wo, lightPath[k].ip.n, lightPath[k].ip.uv);
 					float G = max(dot(lightPath[k - 1].ip.n, -wi), 0.0f) * max(dot(lightPath[k].ip.n, wi), 0.0f) / len;
-					float COS = max(dot(lightPath[k].ip.n, wi), 0.0f);
+					float COS = max(dot(lightPath[k].ip.n, wi), 0.0f) * max(dot(lightPath[k - 1].ip.n, -wi), 0.0f);
 					currentResult = currentResult * COS * BRDF;
 
 				}
@@ -405,12 +406,13 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 					vec3 wo = k == 0 ? cameraDirection : normalize(cameraPath[k - 1].ip.p - cameraPath[k].ip.p);
 					vec3 BRDF = cameraPath[k].ip.mat->phongModelBRDF(wi, wo, cameraPath[k].ip.n, cameraPath[k].ip.uv);
 					float G = max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * max(dot(cameraPath[k].ip.n, wi), 0.0f) / len;
-					float COS = max(dot(cameraPath[k].ip.n, wi), 0.0f);
+					float COS = max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * max(dot(cameraPath[k].ip.n, wi), 0.0f);
 					currentResult = currentResult * COS * BRDF;
 
 				}
 
-				pathResult[i + j] += currentResult / (cameraPath[i].p * lightPath[j].p);
+				currentResult /= cameraPath[i].p * lightPath[j].p;
+				pathResult[i + j] += currentResult;
 				pathPDF[i + j] += (cameraPath[i].p * lightPath[j].p);
 
 			}
@@ -423,7 +425,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 	for (int i = 0; i < cameraPath.size() + lightPath.size(); i++)
 		if (paths[i] != 0) MISResult += pathResult[i] / (1.0f * paths[i]);
 	return MISResult;
-	
+
 }
 
 vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
