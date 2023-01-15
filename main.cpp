@@ -100,7 +100,7 @@ int main() {
 
 				Ray r = cam->pixelRay(i, j);
 
-				if (i == 224 && j == cam->Height() - 197) {
+				if (i == 72 && j == cam->Height() - 37) {
 
 					bool xx = true;
 
@@ -363,6 +363,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 	vec3 MISResult = vec3(0);
 	int* paths = new int[cameraPath.size() + lightPath.size()]();
 	vec3* pathResult = new vec3[cameraPath.size() + lightPath.size()]();
+	float* pathPDF = new float[cameraPath.size() + lightPath.size()]();
 	
 	for (int i = 0; i < cameraPath.size(); i++) {
 
@@ -410,6 +411,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 				}
 
 				pathResult[i + j] += currentResult / (cameraPath[i].p * lightPath[j].p);
+				pathPDF[i + j] += (cameraPath[i].p * lightPath[j].p);
 
 			}
 
@@ -454,16 +456,17 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 	lightPath.clear();
 
 	light->uniformSampling(tmpIP);
-	lightPath.push_back(PathPoint(tmpIP, 1.0f / lightA));
+	lightPath.push_back(PathPoint(tmpIP, 1.0f / light->area()));
 	light->randomLightTracingRay(tmpIP, lightRay, p);
 	//p *= max(dot(lightRay.direction(), tmpIP.n), 0.0f);
 	lightPath.back().p /= max(dot(lightRay.direction(), tmpIP.n), 0.0f);
 	IT = intersectionTypeCheck(lightRay, tmpT, tmpIP);
+	//p /= tmpT * tmpT;
 	lightPath.back().p *= tmpT * tmpT;
+	RR = rand() * 1.0f / RAND_MAX;
+	if (IT == HITOBJECT && RR < RRThreshold) {
 
-	if (IT == HITOBJECT) {
-
-		lightPath.push_back(PathPoint(tmpIP, p * lightPath.back().p));
+		lightPath.push_back(PathPoint(tmpIP, p * RRThreshold * lightPath.back().p));
 		vec3 wi = lightRay.direction() * -1.0f;
 		vec3 wo;
 		RR = rand() * 1.0f / RAND_MAX;

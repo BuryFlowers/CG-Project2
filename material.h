@@ -85,8 +85,8 @@ public:
         vec3 z = normalize(cross(y, wo));
         vec3 x = normalize(cross(y, z));
 
-        float sampleDiffuse = rand() * 1.0f / RAND_MAX;
-        //float sampleDiffuse = 0.0f;
+        //float sampleDiffuse = rand() * 1.0f / RAND_MAX;
+        float sampleDiffuse = 0.0f;
         vec3 kd = diffuse * sampleTexture(IP.uv.x, IP.uv.y);
         vec3 ks = specular;
         if (sampleDiffuse <= kd[rgb]) {
