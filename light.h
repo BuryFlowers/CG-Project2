@@ -178,7 +178,7 @@ public:
 
 	}
 
-	virtual vec3 uniformSampling(IntersectionPoint& IP) {
+	virtual float uniformSampling(IntersectionPoint& IP) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
 		float a = 0;
@@ -195,14 +195,16 @@ public:
 
 		}
 
-		return m->uniformSampling(IP);
+		m->uniformSampling(IP);
+		return 1.0f / A;
 
 	}
 
 	vec3 randomLightRay(vec3 startPoint, Ray& r) {
 
 		IntersectionPoint tmpIP;
-		vec3 o = this->uniformSampling(tmpIP);
+		this->uniformSampling(tmpIP);
+		vec3 o = tmpIP.p;
 		vec3 d = normalize(o - startPoint);
 		r = Ray(startPoint, d);
 		return o;

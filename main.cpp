@@ -23,7 +23,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "veach-mis";
+std::string sceneName = "cornell-box";
 
 int materialNum = 0;
 Material* materialList = NULL;
@@ -52,7 +52,7 @@ Light* LoadLight();
 void LoadOBJ();
 
 const float RRThreshold = 0.8f;
-int SPP = 256;
+int SPP = 32;
 std::vector<PathPoint> paths;
 float* result;
 float maxResult = 0.0f;
@@ -65,7 +65,7 @@ IntersectionType intersectionTypeCheck(Ray r, float& t, IntersectionPoint& IP);
 extern bool CUDAIntersectionCheck(Ray r, float& t, IntersectionPoint& IP);
 vec3 pathTracing(IntersectionPoint IP, vec3 wo);
 vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo);
-vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath);
+vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath, Light* light);
 
 float ACESToneMapping(float color, float adapted_lum);
 float ACESFilm(float x);
@@ -86,7 +86,7 @@ int main() {
 	result = new float[cam->Width() * cam->Height() * 3];
 	image = new char[cam->Width() * cam->Height() * 3];
 
-	#pragma omp parallel for
+#pragma omp parallel for
 	for (int i = 0; i < cam->Width(); i++) {
 		for (int j = 0; j < cam->Height(); j++) {
 
@@ -100,7 +100,7 @@ int main() {
 
 				Ray r = cam->pixelRay(i, j);
 
-				if (i == 72 && j == cam->Height() - 37) {
+				if (i == 257 && j == cam->Height() - 553) {
 
 					bool xx = true;
 
@@ -148,9 +148,9 @@ int main() {
 
 	}
 
-	for (int i = 0; i < cam->Width(); i++) 
+	for (int i = 0; i < cam->Width(); i++)
 		for (int j = 0; j < cam->Height(); j++)
-			for (int k = 0; k < 3; k++) 
+			for (int k = 0; k < 3; k++)
 				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = pow(result[(j + i * cam->Height()) * 3 + k], 1.0f / gamma) * 255.0f;
 
 
@@ -158,7 +158,7 @@ int main() {
 
 }
 
-float ACESToneMapping(float color, float adapted_lum){
+float ACESToneMapping(float color, float adapted_lum) {
 
 	const float A = 2.51f;
 	const float B = 0.03f;
@@ -200,8 +200,8 @@ bool intersectionCheck(Ray r, float& t, IntersectionPoint& IP) {
 		}
 
 	}
-	/*double tmp_timing_finish = omp_get_wtime(); 
-	double tmp_timing_duration = tmp_timing_finish - tmp_timing_start; 
+	/*double tmp_timing_finish = omp_get_wtime();
+	double tmp_timing_duration = tmp_timing_finish - tmp_timing_start;
 	printf("CPU Time to compute : %.5f ns\n", tmp_timing_duration * 1e6);*/
 	return flag;
 
@@ -356,7 +356,7 @@ int randomLight() {
 
 }
 
-vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath) {
+vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::vector<PathPoint>& lightPath, Light* light) {
 
 	float sumP = 0.0f;
 	bool flag = false;
@@ -364,7 +364,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 	int* paths = new int[cameraPath.size() + lightPath.size()]();
 	vec3* pathResult = new vec3[cameraPath.size() + lightPath.size()]();
 	float* pathPDF = new float[cameraPath.size() + lightPath.size()]();
-	
+
 	for (int i = 0; i < cameraPath.size(); i++) {
 
 		for (int j = 0; j < lightPath.size(); j++) {
@@ -384,8 +384,9 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 				flag = true;
 				sumP += cameraPath[i].p * lightPath[j].p;
 				vec3 currentResult = lightPath[0].ip.mat->GetLightRadiance();
+				int k = 1;
 
-				for (int k = 1; k <= j; k++) {
+				for (; k <= j; k++) {
 
 					vec3 wi = lightPath[k - 1].ip.p - lightPath[k].ip.p;
 					float len = length(wi) * length(wi);
@@ -393,27 +394,68 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 					vec3 wo = k == j ? normalize(cameraPath[i].ip.p - lightPath[j].ip.p) : normalize(lightPath[k + 1].ip.p - lightPath[k].ip.p);
 					vec3 BRDF = lightPath[k].ip.mat->phongModelBRDF(wi, wo, lightPath[k].ip.n, lightPath[k].ip.uv);
 					float G = max(dot(lightPath[k - 1].ip.n, -wi), 0.0f) * max(dot(lightPath[k].ip.n, wi), 0.0f) / len;
-					float COS = max(dot(lightPath[k].ip.n, wi), 0.0f) * max(dot(lightPath[k - 1].ip.n, -wi), 0.0f);
+					float COS = max(dot(lightPath[k].ip.n, wi), 0.0f)/* * max(dot(lightPath[k - 1].ip.n, -wi), 0.0f)*/;
 					currentResult = currentResult * COS * BRDF;
 
 				}
 
-				for (int k = i; k >= 0; k--) {
+				k = i;
 
-					vec3 wi = k == i? lightPath[j].ip.p - cameraPath[k].ip.p : cameraPath[k + 1].ip.p - cameraPath[k].ip.p;
+				if (j == 0) {
+
+					vec3 wi = lightPath[0].ip.p - cameraPath[i].ip.p;
+					float len = length(wi) * length(wi);
+					wi = normalize(wi);
+					vec3 wo = i == 0 ? cameraDirection : normalize(cameraPath[i - 1].ip.p - cameraPath[i].ip.p);
+					vec3 BRDF = cameraPath[i].ip.mat->phongModelBRDF(wi, wo, cameraPath[i].ip.n, cameraPath[i].ip.uv);
+					float G = max(dot(cameraPath[i].ip.n, wi), 0.0f) * max(dot(lightPath[0].ip.n, -wi), 0.0f) / len;
+					currentResult = currentResult * G * BRDF * light->area();
+					k--;
+
+				}
+
+				for (; k >= 0; k--) {
+
+					vec3 wi = k == i ? lightPath[j].ip.p - cameraPath[k].ip.p : cameraPath[k + 1].ip.p - cameraPath[k].ip.p;
 					float len = length(wi) * length(wi);
 					wi = normalize(wi);
 					vec3 wo = k == 0 ? cameraDirection : normalize(cameraPath[k - 1].ip.p - cameraPath[k].ip.p);
 					vec3 BRDF = cameraPath[k].ip.mat->phongModelBRDF(wi, wo, cameraPath[k].ip.n, cameraPath[k].ip.uv);
 					float G = max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * max(dot(cameraPath[k].ip.n, wi), 0.0f) / len;
-					float COS = max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * max(dot(cameraPath[k].ip.n, wi), 0.0f);
+					float COS = /*max(dot(k == i ? lightPath[j].ip.n : cameraPath[k + 1].ip.n, -wi), 0.0f) * */max(dot(cameraPath[k].ip.n, wi), 0.0f);
 					currentResult = currentResult * COS * BRDF;
 
 				}
 
-				currentResult /= cameraPath[i].p * lightPath[j].p;
+				float p = 1.0f;
+				for (int k = 0; k < i; k++) {
+
+					p *= cameraPath[k].ip.mat->getDiffusePossibility(cameraPath[k].ip.n, normalize(cameraPath[k + 1].ip.p - cameraPath[k].ip.p), k == 0 ? cameraDirection : normalize(cameraPath[k - 1].ip.p - cameraPath[k].ip.p));
+
+				}
+
+				if (j != 0) {
+
+					p *= cameraPath[i].ip.mat->getDiffusePossibility(cameraPath[i].ip.n, normalize(lightPath[j].ip.p - cameraPath[i].ip.p), i == 0 ? cameraDirection : normalize(cameraPath[i - 1].ip.p - cameraPath[i].ip.p));
+
+					for (int k = j; k >= 2; k--) p *= lightPath[k].ip.mat->getDiffusePossibility(lightPath[k].ip.n, normalize(lightPath[k - 1].ip.p - lightPath[k].ip.p), normalize(k == j ? normalize(cameraPath[i].ip.p - lightPath[k].ip.p) : normalize(lightPath[k + 1].ip.p - lightPath[k].ip.p)));
+
+				}
+
+				if (j == 0) currentResult /= p;
+				else currentResult /= p * lightPath[0].p;
+
+				/*if (j != 0) currentResult /= cameraPath[i].p * lightPath[j].p;
+				else currentResult /= cameraPath[i].p;*/
+				//currentResult /= p;
 				pathResult[i + j] += currentResult;
 				pathPDF[i + j] += (cameraPath[i].p * lightPath[j].p);
+
+				if (currentResult.x < 1.0f && currentResult.y > 1.0f && currentResult.z < 1.0f) {
+
+					bool xx = true;
+
+				}
 
 			}
 
@@ -424,6 +466,7 @@ vec3 MISCombine(std::vector<PathPoint>& cameraPath, vec3 cameraDirection, std::v
 	if (!flag) return vec3(0);
 	for (int i = 0; i < cameraPath.size() + lightPath.size(); i++)
 		if (paths[i] != 0) MISResult += pathResult[i] / (1.0f * paths[i]);
+
 	return MISResult;
 
 }
@@ -452,7 +495,7 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 
 	}
 
-	Light* light = &lights[randomLight()];
+	Light* light = &lights[rand() % lightNum];
 	Ray lightRay;
 	std::vector<PathPoint> lightPath;
 	lightPath.clear();
@@ -486,6 +529,6 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 
 	}
 
-	return MISCombine(cameraPath, wo, lightPath);
+	return MISCombine(cameraPath, wo, lightPath, light);
 
 }
