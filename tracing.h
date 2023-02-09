@@ -21,15 +21,15 @@ struct IntersectionPoint {
 
 struct PathPoint {
 
-    PathPoint(IntersectionPoint IP, float P) {
+    PathPoint(IntersectionPoint IP) {
 
         ip = IP;
-        p = P;
-  
+
     }
      
     IntersectionPoint ip;
-    float p;
+    vec3 wi;
+    vec3 wo;
 
 };
 

@@ -118,12 +118,9 @@ public:
 
     }
 
-    float getDiffusePossibility(vec3 normal, vec3 wi, vec3 wo) {
+    float getDiffusePossibility(vec3 normal, vec3 generatedDirection) {
 
-        vec3 y = normal;
-        vec3 z = normalize(cross(y, wo));
-        vec3 x = normalize(cross(y, z));
-        float costheta = dot(wi, normal);
+        float costheta = dot(generatedDirection, normal);
         if (costheta < 0) return 0;
         return costheta / PI;
 
