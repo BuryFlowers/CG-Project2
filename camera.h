@@ -42,8 +42,8 @@ public:
 
 	Ray pixelRay(int x, int y) {
 
-		//vec2 offset = vec2(rand() * 1.0f / RAND_MAX - 0.5f, rand() * 1.0f / RAND_MAX - 0.5f);
-		vec3 p = origin - x * 2.0f / width * left + y * 2.0f / height * up;
+		vec2 offset = vec2(rand() * 1.0f / RAND_MAX - 0.5f + x, rand() * 1.0f / RAND_MAX - 0.5f + y);
+		vec3 p = origin - offset.x * 2.0f / width * left + offset.y * 2.0f / height * up;
 
 		return Ray(eye, p - eye);
 
