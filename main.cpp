@@ -25,7 +25,7 @@
 using namespace glm;
 
 std::string dataPath = "data/";
-std::string sceneName = "veach-mis";
+std::string sceneName = "cornell-box";
 
 int materialNum = 0;
 Material* materialList = NULL;
