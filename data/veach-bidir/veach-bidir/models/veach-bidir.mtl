@@ -1,0 +1,36 @@
+newmtl Diffuse
+Kd 0.5 0.5 0.5
+Ks 0 0 0
+Tr 1 1 1
+Ns 1
+Ni 1
+newmtl Glass
+Kd 0.5 0.5 0.5
+Ks 0 0 0
+Tr 0.8 1 0.95
+Ns 1
+Ni 1.5
+newmtl Lamp
+Kd 0.25 0.25 0.25
+Ks 1 1 1
+Tr 1 1 1
+Ns 1
+Ni 1
+newmtl Wood
+Kd 0.32963 0.257976 0.150292
+Ks 0 0 0
+Tr 1 1 1
+Ns 1
+Ni 1
+newmtl Light01
+Kd 0 0 0
+Ks 1 1 1
+Tr 1 1 1
+Ns 1
+Ni 1
+newmtl Light02
+Kd 0 0 0 
+Ks 1 1 1
+Tr 1 1 1
+Ns 1
+Ni 1

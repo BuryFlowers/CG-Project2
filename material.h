@@ -64,7 +64,7 @@ public:
 
     vec3 phongModelBRDF(vec3 wi, vec3 wo, vec3 normal, vec2 uv) {
 
-        if (dot(wo, normal) < 0 || dot(wi, normal) < 0) return vec3(0);
+        if (dot(wo, normal) < 0 || dot(wi, normal) < 0) normal *= -1.0f;
         vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
         vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
 
@@ -74,7 +74,7 @@ public:
 
     bool randomBRDFRay(vec3 wo, IntersectionPoint IP, Ray& r, float& p) {
 
-        if (dot(wo, IP.n) < 0) return false;
+        if (dot(wo, IP.n) < 0) IP.n *= -1.0f;
         int rgb = rand() % 3;
         float u1 = rand() * 1.0f / RAND_MAX;
         while (u1 == 0.0f || u1 == 1.0f) u1 = rand() * 1.0f / RAND_MAX;
