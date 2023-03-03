@@ -426,6 +426,8 @@ vec3 BDPTCombine(std::vector<PathPoint>& cameraPath, std::vector<PathPoint>& lig
 
 				path[t].wo = normalize(path[t + 1].ip.p - path[t].ip.p);
 				path[t + 1].wi = -path[t].wo;
+				path[t].lightP = getDiffusePossibility(path[t].ip.n, path[t].wo) * RRThreshold / fabs(dot(path[t].ip.n, path[t].wo));
+				path[t + 1].cameraP = getDiffusePossibility(path[t + 1].ip.n, path[t + 1].wi) * RRThreshold / fabs(dot(path[t + 1].ip.n, path[t + 1].wi));
 
 				if (dot(path[0].wo, path[0].ip.n) <= 0) continue;
 
@@ -466,47 +468,100 @@ vec3 BDPTCombine(std::vector<PathPoint>& cameraPath, std::vector<PathPoint>& lig
 				float sumP = 0;
 				float p = 1.0f / light->area();
 				int validCount = 0;
-				for (int mid = 0; mid < totalPoints - 1; mid++) {
 
-					if (path[mid].ip.mat->isTransparent() || path[mid + 1].ip.mat->isTransparent()) continue;
+				for (int k = 0; k < t; k++) 
+					if (!path[k].ip.mat->isTransparent()) p *= path[k].lightP;
 
-					p = 1.0f / light->area();
+				float lastG = fabs(dot(path[t].ip.n, path[t].wo)) * fabs(dot(path[t + 1].ip.n, path[t + 1].wi));
+				p *= pow(length(path[t].ip.p - path[t + 1].ip.p), 2) / lastG;
 
-					for (int k = 0; k < mid; k++) {
+				for (int k = totalPoints - 1; k > t + 1; k--)
+					if (!path[k].ip.mat->isTransparent()) p *= path[k].cameraP;
 
-						if (!path[k].ip.mat->isTransparent()) {
+				sumP += p;
+				validCount++;
 
-							float cos = fabs(dot(path[k].ip.n, path[k].wo));
-							p *= getDiffusePossibility(path[k].ip.n, path[k].wo) * RRThreshold / cos;
+				float lastK = t;
+				for (int k = t - 1; k >= 0; k--) {
 
-						}
-
-						
-					}
-
-					if (mid >= 0 && mid <= totalPoints - 2) {
-
-						//float len = pow(length(path[mid].ip.p - path[mid + 1].ip.p), 2);
-						float G = fabs(dot(path[mid].ip.n, path[mid].wo)) * fabs(dot(path[mid + 1].ip.n, path[mid + 1].wi));
-						p *= pow(length(path[mid].ip.p - path[mid + 1].ip.p), 2) / G;
-
-					}
-
-					for (int k = totalPoints - 1; k > mid + 1; k--) {
-
-						if (!path[k].ip.mat->isTransparent()) {
-
-							float cos = fabs(dot(path[k].ip.n, path[k].wi));
-							p *= getDiffusePossibility(path[k].ip.n, path[k].wi) * RRThreshold / cos;
-
-						}
-
-					}
-
-					sumP += p;
+					if (path[k].ip.mat->isTransparent() || path[k + 1].ip.mat->isTransparent()) continue;
 					validCount++;
+						
+					float tmpP = p;
+
+					float G = fabs(dot(path[k].ip.n, path[k].wo)) * fabs(dot(path[k + 1].ip.n, path[k + 1].wi));
+					tmpP *= pow(length(path[k].ip.p - path[k + 1].ip.p), 2) * lastG / (pow(length(path[lastK].ip.p - path[lastK + 1].ip.p), 2) * G);
+					lastG = G;
+
+					tmpP *= path[lastK + 1].cameraP / path[k].lightP;
+					sumP += tmpP;
+
+					lastK = k;
 
 				}
+
+				lastK = t;
+				for (int k = t + 1; k < totalPoints - 1; k++) {
+
+					if (path[k].ip.mat->isTransparent() || path[k + 1].ip.mat->isTransparent()) continue;
+					validCount++;
+
+					float tmpP = p;
+
+					float G = fabs(dot(path[k].ip.n, path[k].wo)) * fabs(dot(path[k + 1].ip.n, path[k + 1].wi));
+					tmpP *= pow(length(path[k].ip.p - path[k + 1].ip.p), 2) * lastG / (pow(length(path[lastK].ip.p - path[lastK + 1].ip.p), 2) * G);
+					lastG = G;
+
+					tmpP *= path[lastK].lightP / path[k + 1].cameraP;
+					sumP += tmpP;
+
+					lastK = k;
+
+				}
+
+				//for (int mid = 0; mid < totalPoints - 1; mid++) {
+
+				//	if (path[mid].ip.mat->isTransparent() || path[mid + 1].ip.mat->isTransparent()) continue;
+
+				//	p = 1.0f / light->area();
+
+				//	for (int k = 0; k < mid; k++) {
+
+				//		if (!path[k].ip.mat->isTransparent()) {
+
+				//			//float cos = fabs(dot(path[k].ip.n, path[k].wo));
+				//			//p *= getDiffusePossibility(path[k].ip.n, path[k].wo) * RRThreshold / cos;
+				//			p *= path[k].lightP;
+
+				//		}
+
+				//		
+				//	}
+
+				//	if (mid >= 0 && mid <= totalPoints - 2) {
+
+				//		//float len = pow(length(path[mid].ip.p - path[mid + 1].ip.p), 2);
+				//		float G = fabs(dot(path[mid].ip.n, path[mid].wo)) * fabs(dot(path[mid + 1].ip.n, path[mid + 1].wi));
+				//		p *= pow(length(path[mid].ip.p - path[mid + 1].ip.p), 2) / G;
+
+				//	}
+
+				//	for (int k = totalPoints - 1; k > mid + 1; k--) {
+
+				//		if (!path[k].ip.mat->isTransparent()) {
+
+				//			//float cos = fabs(dot(path[k].ip.n, path[k].wi));
+				//			//p *= getDiffusePossibility(path[k].ip.n, path[k].wi) * RRThreshold / cos;
+				//			p *= path[k].cameraP;
+
+				//		}
+
+				//	}
+
+				//	sumP += p;
+				//	validCount++;
+
+				//}
 
 				if (validCount != 0) sumP /= validCount;
 				else sumP = p;
@@ -541,6 +596,7 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 	IntersectionPoint tmpIP = IP;
 	IntersectionType IT;
 	float RR = 0.0f;
+	float cos;
 	std::vector<PathPoint> cameraPath;
 	std::vector<PathPoint> lightPath;
 	vec3 finalResult = vec3(0);
@@ -552,6 +608,7 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 	cameraPath.clear();
 	cameraPath.push_back(PathPoint(IP));
 	cameraPath.back().wo = wo;
+	//cameraPath.back().lightP = getDiffusePossibility(IP.n, wo) * RRThreshold / cos;
 
 	RR = rand() * 1.0f / RAND_MAX;
 	if (tmpIP.mat->isTransparent()) RR = 0.0f;
@@ -575,8 +632,13 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 		else if (!tmpIP.mat->randomBRDFRay(cameraPath.back().wo, tmpIP, cameraRay, cameraP)) break;
 		IT = intersectionTypeCheck(cameraRay, tmpT, tmpIP);
 		cameraPath.back().wi = cameraRay.direction();
+		cos = fabs(dot(cameraPath.back().ip.n, cameraRay.direction()));
+		cameraPath.back().cameraP = getDiffusePossibility(cameraPath.back().ip.n, cameraRay.direction()) * RRThreshold / cos;
+		
 		cameraPath.push_back(PathPoint(tmpIP));
 		cameraPath.back().wo = -cameraRay.direction();
+		cos = fabs(dot(tmpIP.n, -cameraRay.direction()));
+		cameraPath.back().lightP = getDiffusePossibility(tmpIP.n, -cameraRay.direction()) * RRThreshold / cos;
 
 		if (IT == NOHIT) break;
 		else if (IT == HITLIGHT) {
@@ -629,8 +691,13 @@ vec3 bidirectionalPathTracing(IntersectionPoint IP, vec3 wo) {
 		while (IT == HITOBJECT && RR < RRThreshold) {
 
 			lightPath.back().wo = lightRay.direction();
+			cos = fabs(dot(lightPath.back().ip.n, lightRay.direction()));
+			lightPath.back().lightP = getDiffusePossibility(lightPath.back().ip.n, lightRay.direction()) * RRThreshold / cos;
 			lightPath.push_back(tmpIP);
 			lightPath.back().wi = -lightRay.direction();
+			cos = fabs(dot(tmpIP.n, -lightRay.direction()));
+			lightPath.back().cameraP = getDiffusePossibility(tmpIP.n, -lightRay.direction()) * RRThreshold / cos;
+
 
 			if (tmpIP.mat->isTransparent()) {
 
