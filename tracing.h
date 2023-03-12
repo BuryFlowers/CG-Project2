@@ -30,8 +30,6 @@ struct PathPoint {
     IntersectionPoint ip;
     vec3 wi;
     vec3 wo;
-    float cameraP;
-    float lightP;
 
 };
 
