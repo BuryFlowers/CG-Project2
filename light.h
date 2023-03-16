@@ -12,6 +12,7 @@ class Light : public Mesh{
 
 public:
 
+	//Light is a kind of mesh that emit light
 	Light() {
 
 		mesh.clear();
@@ -178,6 +179,7 @@ public:
 
 	}
 
+	//Sample a random point from all triangles
 	virtual float uniformSampling(IntersectionPoint& IP) {
 
 		float p = rand() * 1.0f / RAND_MAX * A;
@@ -200,6 +202,7 @@ public:
 
 	}
 
+	//Sample a random point, then get a ray from the given start point to that random point 
 	vec3 randomLightRay(vec3 startPoint, Ray& r) {
 
 		IntersectionPoint tmpIP;
@@ -211,6 +214,7 @@ public:
 
 	}
 
+	//Give a point on the meshes, get a random ray from the point
 	bool randomLightTracingRay(IntersectionPoint IP, Ray& r, float& p) {
 
 		vec3 wo = vec3(1.0f, 0, 0);

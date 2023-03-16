@@ -11,6 +11,7 @@
 
 using namespace glm;
 
+//A triangle mesh
 class Triangle : public Mesh {
 
 public:
@@ -113,6 +114,7 @@ private:
 
 };
 
+//All triangles of an object, using BVH to accelerate
 class TriangleObject : public Mesh {
 
 public:
@@ -137,6 +139,7 @@ public:
 
 	virtual float area() { return A; }
 
+	//Search child nodes to get intersection result
 	bool intersectChildren(int l, int r, int AABB_index, Ray ray, float& t, IntersectionPoint& IP) {
 
 		if (l == r) return triangles[l]->intersect(ray, t, IP);
@@ -255,6 +258,7 @@ public:
 
 	}
 
+	//Build the complete BVH tree
 	void updateBVH(int l, int r, int AABB_index, int cmpA) {
 
 		if (l == r) {
@@ -284,6 +288,7 @@ public:
 
 	}
 
+	//The port of building BVH after adding all triangles to this object
 	void buildBVH() {
 
 		v1 = new vec3[triangles.size() * 3 + 1];

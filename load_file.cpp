@@ -5,8 +5,8 @@
 #include "mesh.h"
 #include "light.h"
 #include "triangle.h"
-#include "device_vector.cuh"
-#include "device_triangle.cuh"
+//#include "device_vector.cuh"
+//#include "device_triangle.cuh"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
@@ -184,17 +184,17 @@ Light* LoadLight() {
 
 }
 
-extern d_triangle* d_triangles;
-extern d_triangle* h_triangles;
-extern int* d_id;
-extern float* d_T;
-extern d_vec3* d_weight;
-extern int* d_lock;
-extern Material* h_mat;
-extern int* h_id;
-extern float* h_T;
-extern d_vec3* h_weight;
-extern int* h_lock;
+//extern d_triangle* d_triangles;
+//extern d_triangle* h_triangles;
+//extern int* d_id;
+//extern float* d_T;
+//extern d_vec3* d_weight;
+//extern int* d_lock;
+//extern Material* h_mat;
+//extern int* h_id;
+//extern float* h_T;
+//extern d_vec3* h_weight;
+//extern int* h_lock;
 void LoadOBJ() {
 
 	std::string objPath = dataPath + sceneName + "/" + sceneName + ".obj";
@@ -292,7 +292,7 @@ void LoadOBJ() {
 
 	}
 
-	h_triangles = new d_triangle[triangleNum]();
+	/*h_triangles = new d_triangle[triangleNum]();
 	h_id = new int;
 	*h_id = -1;
 	h_T = new float();
@@ -335,7 +335,7 @@ void LoadOBJ() {
 		printf("[Error]Failed to malloc GPU memory for weights\n");
 		exit(-1);
 
-	}
+	}*/
 
 	triangleNum = 0;
 	offset = 0;
@@ -355,7 +355,7 @@ void LoadOBJ() {
 
 			if (isLight) continue;
 
-			for (int k = 0; k < 3; k++) {
+			/*for (int k = 0; k < 3; k++) {
 
 				tinyobj::index_t index = shapes[i].mesh.indices[j * 3 + k];
 
@@ -366,19 +366,19 @@ void LoadOBJ() {
 
 			}
 
-			h_mat[triangleNum] = materialList[shapes[i].mesh.material_ids[j]];
+			h_mat[triangleNum] = materialList[shapes[i].mesh.material_ids[j]];*/
 			triangleNum++;
 
 		}
 
 	}
 
-	if (cudaMemcpy(d_triangles, h_triangles, triangleNum * sizeof(d_triangle), cudaMemcpyHostToDevice) != cudaSuccess) {
+	//if (cudaMemcpy(d_triangles, h_triangles, triangleNum * sizeof(d_triangle), cudaMemcpyHostToDevice) != cudaSuccess) {
 
-		printf("[Error]Failed to copy triangles to GPU\n");
-		exit(-1);
+	//	printf("[Error]Failed to copy triangles to GPU\n");
+	//	exit(-1);
 
-	}
+	//}
 
 	for (int i = 0; i < lightNum; i++) lights[i].buildBVH();
 	for (int i = 0; i < lightNum; i++) lightA += lights[i].area();

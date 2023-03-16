@@ -64,6 +64,7 @@ public:
 
     vec3 phongModelBRDF(vec3 wi, vec3 wo, vec3 normal, vec2 uv) {
 
+        //Shade the back of a mesh
         if (dot(wo, normal) < 0 || dot(wi, normal) < 0) normal *= -1.0f;
         vec3 reflectDirection = normalize(2 * dot(wi, normal) * normal - wi);
         vec3 result = diffuse * sampleTexture(uv.x, uv.y) * (1.0f / PI) + specular * (shiness + 2) * pow(max(dot(reflectDirection, wo), 0.0f), shiness) / (2.0f * PI);
@@ -72,6 +73,7 @@ public:
 
     }
 
+    //Be supposed to use BRDF distribution to get a random ray, but use cos-weighted distribution to get a random ray instead because of low precision of float
     bool randomBRDFRay(vec3 wo, IntersectionPoint IP, Ray& r, float& p) {
 
         if (dot(wo, IP.n) < 0) IP.n *= -1.0f;
@@ -107,6 +109,7 @@ public:
             vec3 wi = x * cosf(w.y) * sinf(w.x) + y * cosf(w.x) + z * sinf(w.y) * sinf(w.x);
 
             r = Ray(IP.p, wi);
+            //When shiness is bigger than 500 or 1000, p will be too small, and be clamped to 0.0f automatically
             double dp = pow(max((double)dot(reflectDirection, wi), 0.0), shiness) * (shiness + 1) / (2.0 * PI);
             p = (float)dp;
             //if (p < 1e-2) return this->randomBRDFRay(wo, IP, r, p);
@@ -118,7 +121,7 @@ public:
 
     }
 
-    float getDiffusePossibility(vec3 normal, vec3 generatedDirection) {
+    /*float getDiffusePossibility(vec3 normal, vec3 generatedDirection) {
 
         float costheta = dot(generatedDirection, normal);
         if (costheta < 0) return 0;
@@ -138,7 +141,7 @@ public:
         if (cosalpha < 0) return 0;
         return pow(cosalpha, shiness) * (shiness + 1) / (2.0f * PI);
 
-    }
+    }*/
 
     bool isTransparent() { return IOR > 1.0f; }
 
@@ -158,28 +161,6 @@ public:
         return 0.5f * (RV * RV + RH * RH);
 
     }
-
-    //bool refrectionRay(vec3 wo, IntersectionPoint IP, Ray& r) {
-
-    //    int rgb = rand() % 3;
-    //    float p = rand() * 1.0f / RAND_MAX;
-
-    //    //if (p <= transmittance[rgb]) return false;
-
-    //    if (transmittance.x >= 1.0f && transmittance.y >= 1.0f && transmittance.z >= 1.0f) return false;
-
-    //    float ior = IOR;
-    //    if (dot(wo, IP.n) < 0) ior = 1.0f / IOR, IP.n *= -1.0f;
-    //    float coso = fabs(dot(wo, IP.n));
-    //    if (1.0f - (1.0f - coso * coso) < 0) return false;
-    //    float cosi = sqrt(1.0f - (1.0f - coso * coso) / (ior * ior));
-
-    //    vec3 wi = normalize(- IP.n * cosi + (IP.n * coso - wo) / ior);
-    //    r = Ray(IP.p, wi);
-
-    //    return true;
-
-    //}
 
     vec3 Trans() { return transmittance; }
     const char* Name() { return name.c_str(); }
@@ -204,15 +185,6 @@ public:
       
         int index = (i + (texture->height - j - 1) * texture->width) * texture->channel;
         vec3 color = vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
-        //printf("%d %.2lf\n", texture->image[index], color.x);
-
-        //if (name == "Wood"/* && i == 312 && j == 883*/) {
-
-        //    printf("i:%d j:%d\n", i, j);
-        //    printf("%d %d %d\n", texture->image[index], texture->image[index + 1], texture->image[index + 2]);
-        //    printf("%.2lf %.2lf %.2lf\n\n", color.x, color.y, color.z);
-
-        //}
 
         return vec3(texture->image[index] * 1.0f / 255.0f, texture->image[index + 1] * 1.0f / 255.0f, texture->image[index + 2] * 1.0f / 255.0f);
 

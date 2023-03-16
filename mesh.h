@@ -12,11 +12,15 @@ class Mesh {
 
 public:
 
+	//Axis aligned bounding box
 	virtual void AABB(vec3& v1, vec3& v2) = 0;
 	virtual float area() = 0;
+	//Test intersection with a ray
 	virtual bool intersect(Ray r, float &t, IntersectionPoint &IP) = 0;
+	//Get a random point on the mesh
 	virtual float uniformSampling(IntersectionPoint& IP) = 0;
 
+	//Compare two meshes' AABB, return true if the former is smaller in x-axis
 	static bool cmpx(Mesh* a, Mesh* b) {
 
 		vec3 av1, av2;
@@ -28,6 +32,7 @@ public:
 
 	}
 
+	//Compare two meshes' AABB, return true if the former is smaller in y-axis
 	static bool cmpy(Mesh* a, Mesh* b) {
 
 		vec3 av1, av2;
@@ -39,6 +44,7 @@ public:
 
 	}
 
+	//Compare two meshes' AABB, return true if the former is smaller in z-axis
 	static bool cmpz(Mesh* a, Mesh* b) {
 
 		vec3 av1, av2;

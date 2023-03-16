@@ -48,15 +48,6 @@
     <ClInclude Include="tracing.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="device_vector.cuh">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="device_triangle.cuh">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="book.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -71,10 +62,5 @@
     <ClCompile Include="stb_image.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <CudaCompile Include="kernel.cu">
-      <Filter>源文件</Filter>
-    </CudaCompile>
   </ItemGroup>
 </Project>

@@ -8,8 +8,11 @@
 
 using namespace glm;
 
+//This header defines some structure of tracer situation information
+
 extern class Material;
 
+//The position, normal and uvs of a intersection point
 struct IntersectionPoint {
 
     Material* mat;
@@ -19,6 +22,7 @@ struct IntersectionPoint {
 
 };
 
+//The IP , incident direction and out direction of a point in the light path 
 struct PathPoint {
 
     PathPoint(IntersectionPoint IP) {

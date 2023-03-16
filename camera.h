@@ -40,8 +40,10 @@ public:
 	int Width() { return width; }
 	int Height() { return height; }
 
+	//Give pixel postion x and y, that is between 0 and width/height, get the ray from camera position to the virtual screen
 	Ray pixelRay(int x, int y) {
 
+		//Set a small random offset for anti-aliasing
 		vec2 offset = vec2(rand() * 1.0f / RAND_MAX - 0.5f + x, rand() * 1.0f / RAND_MAX - 0.5f + y);
 		vec3 p = origin - offset.x * 2.0f / width * left + offset.y * 2.0f / height * up;
 
@@ -62,6 +64,7 @@ private:
 	int width;
 	int height;
 
+	//Get camera local axis
 	void getBasis() {
 
 		front = lookat - eye;
