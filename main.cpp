@@ -56,7 +56,7 @@ void LoadOBJ();
 //Russian Roulette Possibility of not dropping a new random ray
 const float RRThreshold = 0.8f;
 //Samples per pixel
-int SPP = 60;
+int SPP = 31;
 std::vector<PathPoint> paths;
 //Final result
 float* result;
@@ -150,7 +150,7 @@ int main() {
 				IntersectionType IT = intersectionTypeCheck(r, t, IP);
 
 				//If the ray hit an object then use PT or BDPT to get result
-				if (IT == HITOBJECT) color = pathTracing(IP, r.direction() * -1.0f);
+				if (IT == HITOBJECT) color = bidirectionalPathTracing(IP, r.direction() * -1.0f);
 				//If the ray hit a light then return light's radiance
 				else if (IT == HITLIGHT) color = IP.mat->GetLightRadiance();
 				else color = vec3(0);
@@ -189,7 +189,7 @@ int main() {
 				image[(i + (cam->Height() - j - 1) * cam->Width()) * 3 + k] = pow(result[(j + i * cam->Height()) * 3 + k], 1.0f / gamma) * 255.0f;
 
 
-	stbi_write_jpg(("test/" + sceneName + "_" + "PT" + "_" + std::to_string(cam->Width()) + "X" + std::to_string(cam->Height()) + "_" + std::to_string(SPP) + "SPP_" + std::to_string((int)tmp_timing_duration / 60) + "Min" + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
+	stbi_write_jpg(("test/" + sceneName + "_" + "BDPT_MIS" + "_" + std::to_string(cam->Width()) + "X" + std::to_string(cam->Height()) + "_" + std::to_string(SPP) + "SPP_" + std::to_string((int)tmp_timing_duration / 60) + "Min" + ".jpg").c_str(), cam->Width(), cam->Height(), 3, image, 100);
 
 	fout.close();
 
